@@ -31,6 +31,7 @@ export interface Member {
   cargo: string;
   tipo: MemberKind;
   iniciais: string;
+  avatarUrl?: string;
   email?: string;
   acesso?: 'Administrador' | 'Direção' | 'Operação' | 'Convidado';
   estadoOperacional?: AgentOperationalStatus;

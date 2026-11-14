@@ -2,6 +2,16 @@ import artefatoPalcoImg from '../assets/images/artefato_palco_evento_17946266546
 import artefatoIdentidadeImg from '../assets/images/artefato_identidade_marca_1794626655297.jpg';
 import artefatoCampanhaImg from '../assets/images/artefato_campanha_ooh_1794626655854.jpg';
 import artefatoInterfaceImg from '../assets/images/artefato_interface_app_1794626655513.jpg';
+import avatarLucasImg from '../assets/images/avatar_lucas_v3_1794636817675.jpg';
+import avatarMarianaImg from '../assets/images/avatar_mariana_v3_1794636818808.jpg';
+import avatarRafaelImg from '../assets/images/avatar_rafael_v2_1794636616595.jpg';
+import avatarCamilaImg from '../assets/images/avatar_camila_v3_1794636819729.jpg';
+import avatarClaraImg from '../assets/images/avatar_clara_v2_1794636617161.jpg';
+import avatarCaioImg from '../assets/images/avatar_caio_v3_1794636821170.jpg';
+import avatarHelenaImg from '../assets/images/avatar_helena_v3_1794636821451.jpg';
+import avatarBrunoImg from '../assets/images/avatar_bruno_v2_1794636619369.jpg';
+import avatarSofiaImg from '../assets/images/avatar_sofia_v3_1794636822447.jpg';
+import avatarMateusImg from '../assets/images/avatar_mateus_v3_1794636820976.jpg';
 import {
   Client,
   Decision,
@@ -34,6 +44,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Fundador e Diretor Executivo',
       tipo: 'pessoa',
       iniciais: 'LR',
+      avatarUrl: avatarLucasImg,
       email: 'lucas@eagledigital.com.br',
       acesso: 'Administrador',
     },
@@ -43,6 +54,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Diretora de Operações',
       tipo: 'pessoa',
       iniciais: 'MC',
+      avatarUrl: avatarMarianaImg,
       email: 'mariana@eagledigital.com.br',
       acesso: 'Direção',
     },
@@ -52,6 +64,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Diretor de Criação',
       tipo: 'pessoa',
       iniciais: 'RT',
+      avatarUrl: avatarRafaelImg,
       email: 'rafael@eagledigital.com.br',
       acesso: 'Direção',
     },
@@ -61,6 +74,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Produtora Executiva de Conteúdo',
       tipo: 'pessoa',
       iniciais: 'CN',
+      avatarUrl: avatarCamilaImg,
       email: 'camila@eagledigital.com.br',
       acesso: 'Operação',
       convitePendente: true,
@@ -71,6 +85,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Diretora de Arte',
       tipo: 'agente',
       iniciais: 'CL',
+      avatarUrl: avatarClaraImg,
       estadoOperacional: 'trabalhando',
       observacaoEstado: 'Ajustando estudos de palco e sinalização do Fórum Vereda',
       tarefaAtualId: 'tsk-101',
@@ -82,6 +97,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Designer Sênior',
       tipo: 'agente',
       iniciais: 'CA',
+      avatarUrl: avatarCaioImg,
       estadoOperacional: 'trabalhando',
       observacaoEstado: 'Fechando guia tipográfico e papelaria do Grupo Aurora',
       tarefaAtualId: 'tsk-102',
@@ -93,6 +109,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Redatora Chefe',
       tipo: 'agente',
       iniciais: 'HE',
+      avatarUrl: avatarHelenaImg,
       estadoOperacional: 'parado',
       observacaoEstado: 'Aguardando próxima pauta de campanha ou manifesto',
       habilidadesIds: ['sk-4'],
@@ -103,6 +120,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Desenvolvedor Front-end',
       tipo: 'agente',
       iniciais: 'BR',
+      avatarUrl: avatarBrunoImg,
       estadoOperacional: 'trabalhando',
       observacaoEstado: 'Implementando grade editorial e agenda do portal Bienal Sonora',
       tarefaAtualId: 'tsk-104',
@@ -114,6 +132,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Gerente de Contas',
       tipo: 'agente',
       iniciais: 'SO',
+      avatarUrl: avatarSofiaImg,
       estadoOperacional: 'problema',
       observacaoEstado: 'Sem retorno do cliente sobre lista final de palestrantes do Vereda',
       tarefaAtualId: 'tsk-105',
@@ -125,6 +144,7 @@ export const INITIAL_EAGLE_STATE: EagleState = {
       cargo: 'Estrategista de Marca',
       tipo: 'agente',
       iniciais: 'MA',
+      avatarUrl: avatarMateusImg,
       estadoOperacional: 'trabalhando',
       observacaoEstado: 'Consolidando narrativa institucional Eagle 13 Anos',
       tarefaAtualId: 'tsk-106',

@@ -2,6 +2,16 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Check, FileText, Menu, Plus, Search, X } from 'lucide-react';
 import { Artifact, Member } from '../types/eagle';
+import {
+  ActionIconButton,
+  Badge,
+  Button,
+  EagleAgentOrb,
+  FolderTabs,
+  GlobalMemberAvatar,
+} from './DesignSystem';
+
+export { ActionIconButton, Badge, Button, EagleAgentOrb, FolderTabs };
 
 export function StatusIndicator({
   label,
@@ -35,56 +45,15 @@ export function MemberAvatar({
   showOperationalRing = false,
 }: {
   member?: Member;
-  size?: 'xs' | 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   showOperationalRing?: boolean;
 }) {
-  const sizes = {
-    xs: 'w-5 h-5 text-[9.5px] rounded-[7px]',
-    sm: 'w-6.5 h-6.5 text-[11px] rounded-[8px]',
-    md: 'w-8 h-8 text-[12px] rounded-[10px]',
-    lg: 'w-10 h-10 text-[13px] rounded-[12px]',
-  };
-
-  if (!member) {
-    return (
-      <div
-        className={`${sizes[size]} bg-[#ebeff3] dark:bg-[#1b2029] text-[#0f1115]/50 dark:text-[#f2f4f7]/50 inline-flex items-center justify-center font-medium shrink-0 border border-[#0f1115]/8 dark:border-[#f2f4f7]/8`}
-      >
-        —
-      </div>
-    );
-  }
-
-  const isAgent = member.tipo === 'agente';
-  const op = member.estadoOperacional;
-
   return (
-    <div
-      title={`${member.nome} · ${member.cargo}`}
-      className={`relative ${sizes[size]} inline-flex items-center justify-center font-semibold tracking-tight shrink-0 transition-transform duration-150 ${
-        isAgent
-          ? 'bg-[#163744] text-[#f2f4f7] dark:bg-[#1b2c36] dark:text-[#9fdce6] border border-[#163744]/20 dark:border-[#9fdce6]/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]'
-          : 'bg-[#ebeff3] text-[#0f1115] dark:bg-[#222833] dark:text-[#f2f4f7] border border-[#0f1115]/10 dark:border-[#f2f4f7]/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-      }`}
-    >
-      <span>{member.iniciais}</span>
-      {showOperationalRing && isAgent && op && (
-        <span
-          className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-[#15181f] ${
-            op === 'trabalhando'
-              ? 'bg-[#15803d] dark:bg-[#4ade80]'
-              : op === 'problema'
-                ? 'bg-[#b91c1c] dark:bg-[#f87171]'
-                : 'bg-[#6b7280] dark:bg-[#9ca3af]'
-          }`}
-          aria-hidden="true"
-        >
-          {op === 'trabalhando' && (
-            <span className="eagle-live-halo absolute -inset-0.5 rounded-full bg-[#15803d] dark:bg-[#4ade80]" />
-          )}
-        </span>
-      )}
-    </div>
+    <GlobalMemberAvatar
+      member={member}
+      size={size}
+      showOperationalRing={showOperationalRing}
+    />
   );
 }
 
@@ -167,7 +136,7 @@ export function PageHeader({
   onOpenMobileMenu: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-20 bg-[#ffffff]/92 dark:bg-[#15181f]/92 backdrop-blur-xs border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8 px-5 lg:px-7 py-3.5 rounded-t-[20px]">
+    <header className="sticky top-0 z-20 bg-[#ffffff]/78 dark:bg-[#15181f]/78 backdrop-blur-xl backdrop-saturate-150 border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8 px-5 lg:px-7 py-3.5 rounded-t-[20px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <button

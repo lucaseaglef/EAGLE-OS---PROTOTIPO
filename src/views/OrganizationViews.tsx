@@ -1,15 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import {
-  ArrowRight,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  Pause,
-  Play,
-  Plus,
-  X,
-} from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronRight, Clock, Plus, X } from 'lucide-react';
+import { AgentOrbCard } from '../components/AgentOrbCard';
 import {
   EmptyState,
   MemberAvatar,
@@ -19,7 +11,6 @@ import {
 import { BentoCard, MicroRing } from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import { AgentOperationalStatus, Goal, Member } from '../types/eagle';
-import { AGENT_STATUS_META } from '../utils/formatters';
 
 /* -------------------------------------------------------------------------- */
 /* AGENTES (Grade de cards operacionais de IA)                                */
@@ -167,127 +158,27 @@ export function AgentsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {agents.map((ag) => {
-                const st = AGENT_STATUS_META[ag.estadoOperacional ?? 'parado'];
                 const currentTask = ag.tarefaAtualId
                   ? getTask(ag.tarefaAtualId)
                   : undefined;
-                const skills = state.skills.filter((s) =>
-                  ag.habilidadesIds?.includes(s.id)
-                );
-                const totalSub = currentTask?.subtarefas.length ?? 0;
-                const doneSub =
-                  currentTask?.subtarefas.filter((s) => s.concluida).length ?? 0;
+                const skillsNames = state.skills
+                  .filter((s) => ag.habilidadesIds?.includes(s.id))
+                  .map((s) => s.nome);
 
                 return (
-                  <BentoCard
+                  <AgentOrbCard
                     key={ag.id}
-                    className="flex flex-col justify-between overflow-hidden"
-                  >
-                    <div className="p-5 space-y-4">
-                      {/* Topo: avatar + nome + estado */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <MemberAvatar member={ag} size="lg" showOperationalRing />
-                          <div className="min-w-0">
-                            <h2 className="text-[15.5px] font-semibold text-[#0f1115] dark:text-[#f2f4f7] truncate">
-                              {ag.nome}
-                            </h2>
-                            <div className="text-[12px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 truncate">
-                              {ag.cargo}
-                            </div>
-                          </div>
-                        </div>
-
-                        <StatusIndicator
-                          label={st.label}
-                          dotClass={st.dotClass}
-                          textClass={st.textClass}
-                          live={ag.estadoOperacional === 'trabalhando'}
-                        />
-                      </div>
-
-                      {/* Bloco do que está fazendo agora */}
-                      <div className="rounded-[12px] bg-[#f2f4f7]/85 dark:bg-[#10141b] p-3.5 space-y-2.5">
-                        <p className="text-[12.5px] text-[#0f1115]/78 dark:text-[#f2f4f7]/78 leading-snug line-clamp-2">
-                          {ag.observacaoEstado ?? 'Pronto para receber uma nova tarefa.'}
-                        </p>
-
-                        {currentTask && (
-                          <div className="space-y-1.5 pt-1">
-                            <div className="flex items-center justify-between gap-2 text-[11.5px]">
-                              <span className="font-semibold text-[#163744] dark:text-[#9fdce6] tabular-nums">
-                                {currentTask.codigo}
-                              </span>
-                              {totalSub > 0 && (
-                                <span className="text-[#0f1115]/48 dark:text-[#f2f4f7]/48 tabular-nums">
-                                  {doneSub}/{totalSub} etapas
-                                </span>
-                              )}
-                            </div>
-                            {totalSub > 0 && (
-                              <div className="h-1 w-full rounded-full bg-[#e6e9ed] dark:bg-[#232934] overflow-hidden">
-                                <div
-                                  className="h-full bg-[#163744] dark:bg-[#9fdce6] rounded-full transition-all duration-300"
-                                  style={{
-                                    width: `${Math.round((doneSub / totalSub) * 100)}%`,
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {skills.length > 0 && (
-                        <div className="text-[11.5px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48 truncate">
-                          {skills.map((s) => s.nome).join(' · ')}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Dock inferior de ações */}
-                    <div className="px-5 py-3 border-t border-[#0f1115]/7 dark:border-[#f2f4f7]/7 bg-[#f2f4f7]/45 dark:bg-[#11141a] flex items-center justify-between gap-2">
-                      {currentTask ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedTaskId(currentTask.id);
-                            setActiveSection('tarefas');
-                          }}
-                          className="text-[12px] font-medium text-[#163744] dark:text-[#9fdce6] hover:underline inline-flex items-center gap-1 truncate cursor-pointer"
-                        >
-                          <span className="truncate">Abrir {currentTask.codigo}</span>
-                          <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => setActiveSection('tarefas')}
-                          className="text-[12px] font-medium text-[#0f1115]/65 dark:text-[#f2f4f7]/65 hover:text-[#163744] dark:hover:text-[#9fdce6] cursor-pointer"
-                        >
-                          Atribuir tarefa
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => toggleAgentOperationalStatus(ag.id)}
-                        className="eagle-btn-secondary h-7.5 px-3 text-[12px] font-medium inline-flex items-center gap-1.5 cursor-pointer shrink-0"
-                      >
-                        {ag.estadoOperacional === 'trabalhando' ? (
-                          <>
-                            <Pause className="w-3 h-3" />
-                            <span>Pausar</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3 h-3" />
-                            <span>Ativar</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </BentoCard>
+                    agent={ag}
+                    currentTask={currentTask}
+                    skillsNames={skillsNames}
+                    onOpenTask={() => {
+                      if (currentTask) {
+                        setSelectedTaskId(currentTask.id);
+                      }
+                      setActiveSection('tarefas');
+                    }}
+                    onToggleStatus={() => toggleAgentOperationalStatus(ag.id)}
+                  />
                 );
               })}
             </div>
