@@ -6,6 +6,11 @@ import {
   SegmentedControl,
   StatusIndicator,
 } from '../components/SharedUI';
+import {
+  BentoCard,
+  ProportionBar,
+  SparkBars,
+} from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import { FinanceStatus, FinanceType } from '../types/eagle';
 import { formatBRL, formatShortDate } from '../utils/formatters';
@@ -62,16 +67,14 @@ export function FinanceView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
       if (f.tipo === 'pagar' && f.status === 'pendente') aPagar += f.valorCentavos;
       if (f.tipo === 'pagar' && f.status === 'liquidado') pago += f.valorCentavos;
     }
-    const volumeTotal = Math.max(1, recebido + aReceber + pago + aPagar);
     return {
       aReceber,
       recebido,
       aPagar,
       pago,
+      totalEntradas: recebido + aReceber,
+      totalSaidas: pago + aPagar,
       saldoProjetado: recebido + aReceber - (pago + aPagar),
-      pctRecebido: (recebido / volumeTotal) * 100,
-      pctAReceber: (aReceber / volumeTotal) * 100,
-      pctSaidas: ((pago + aPagar) / volumeTotal) * 100,
     };
   }, [state.finances]);
 
@@ -126,174 +129,215 @@ export function FinanceView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
         onOpenMobileMenu={onOpenMobileMenu}
       />
 
-      <div className="flex-1 overflow-y-auto">
-        {filteredEntries.length === 0 ? (
-          <div className="p-6 lg:p-9 max-w-4xl mx-auto">
+      <div className="flex-1 overflow-y-auto p-5 lg:p-7">
+        <div className="max-w-[1380px] mx-auto space-y-5">
+          {/* FAIXA DE BENTO FINANCEIRO (3 BLOCOS) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <BentoCard className="p-5 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                  Saldo projetado
+                </div>
+                <div className="mt-1 text-[24px] font-semibold tracking-[-0.03em] tabular-nums text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                  {formatBRL(totals.saldoProjetado)}
+                </div>
+                <div className="mt-1.5 text-[11.5px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48 tabular-nums">
+                  {state.finances.length} lançamentos no período
+                </div>
+              </div>
+              <div className="w-20 shrink-0">
+                <SparkBars
+                  height={46}
+                  items={[
+                    { key: 'rec', label: 'Recebido', value: totals.recebido, tone: 'success' },
+                    { key: 'arec', label: 'A receber', value: totals.aReceber, tone: 'accent' },
+                    { key: 'pag', label: 'Pago', value: totals.pago, tone: 'muted' },
+                    { key: 'apag', label: 'A pagar', value: totals.aPagar, tone: 'warning' },
+                  ]}
+                />
+              </div>
+            </BentoCard>
+
+            <BentoCard className="p-5 flex flex-col justify-between gap-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <div>
+                  <div className="text-[12px] font-medium text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                    Entradas previstas
+                  </div>
+                  <div className="mt-1 text-[22px] font-semibold tracking-[-0.025em] tabular-nums text-[#0f1115] dark:text-[#f2f4f7]">
+                    {formatBRL(totals.totalEntradas)}
+                  </div>
+                </div>
+                <span className="text-[12px] font-medium tabular-nums text-[#163744] dark:text-[#9fdce6]">
+                  {Math.round(
+                    (totals.recebido / Math.max(1, totals.totalEntradas)) * 100
+                  )}
+                  % recebido
+                </span>
+              </div>
+
+              <ProportionBar
+                heightClass="h-1.5"
+                showLegend
+                segments={[
+                  {
+                    key: 'recebido',
+                    value: totals.recebido,
+                    colorClass: 'bg-[#15803d] dark:bg-[#4ade80]',
+                    label: `Recebido ${formatBRL(totals.recebido)}`,
+                  },
+                  {
+                    key: 'a_receber',
+                    value: totals.aReceber,
+                    colorClass: 'bg-[#163744] dark:bg-[#9fdce6]',
+                    label: `A receber ${formatBRL(totals.aReceber)}`,
+                  },
+                ]}
+              />
+            </BentoCard>
+
+            <BentoCard className="p-5 flex flex-col justify-between gap-3">
+              <div className="flex items-baseline justify-between gap-2">
+                <div>
+                  <div className="text-[12px] font-medium text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                    Saídas do estúdio
+                  </div>
+                  <div className="mt-1 text-[22px] font-semibold tracking-[-0.025em] tabular-nums text-[#0f1115] dark:text-[#f2f4f7]">
+                    {formatBRL(totals.totalSaidas)}
+                  </div>
+                </div>
+                <span className="text-[12px] font-medium tabular-nums text-[#92400e] dark:text-[#fbbf24]">
+                  {formatBRL(totals.aPagar)} em aberto
+                </span>
+              </div>
+
+              <ProportionBar
+                heightClass="h-1.5"
+                showLegend
+                segments={[
+                  {
+                    key: 'pago',
+                    value: totals.pago,
+                    colorClass: 'bg-[#6b7280] dark:bg-[#9ca3af]',
+                    label: `Pago ${formatBRL(totals.pago)}`,
+                  },
+                  {
+                    key: 'a_pagar',
+                    value: totals.aPagar,
+                    colorClass: 'bg-[#b45309] dark:bg-[#fbbf24]',
+                    label: `A pagar ${formatBRL(totals.aPagar)}`,
+                  },
+                ]}
+              />
+            </BentoCard>
+          </div>
+
+          {/* TABELA DE LANÇAMENTOS EM CARD ÚNICO */}
+          {filteredEntries.length === 0 ? (
             <EmptyState
               title="Nenhum lançamento financeiro neste filtro."
               actionLabel="Registrar lançamento"
               onAction={() => setIsNewModalOpen(true)}
             />
-          </div>
-        ) : (
-          <div className="divide-y divide-[#0f1115]/8 dark:divide-[#f2f4f7]/8">
-            {/* Barra de composição de fluxo sem caixas */}
-            <div className="px-6 lg:px-9 py-5 space-y-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-4">
-                <div className="flex flex-wrap items-baseline gap-x-7 gap-y-2 tabular-nums">
-                  <div>
-                    <div className="text-[11.5px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
-                      Recebido
-                    </div>
-                    <div className="text-[20px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-[#f2f4f7]">
-                      {formatBRL(totals.recebido)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11.5px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
-                      A receber
-                    </div>
-                    <div className="text-[20px] font-semibold tracking-[-0.02em] text-[#163744] dark:text-[#9fdce6]">
-                      {formatBRL(totals.aReceber)}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11.5px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
-                      Saídas (pagas + a pagar)
-                    </div>
-                    <div className="text-[20px] font-semibold tracking-[-0.02em] text-[#0f1115]/68 dark:text-[#f2f4f7]/68">
-                      {formatBRL(totals.pago + totals.aPagar)}
-                    </div>
-                  </div>
-                </div>
+          ) : (
+            <BentoCard className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8 text-[11.5px] font-medium text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                      <th className="py-3.5 pl-5 pr-4 font-medium">Vencimento</th>
+                      <th className="py-3.5 px-4 font-medium">Lançamento</th>
+                      <th className="py-3.5 px-4 font-medium">Cliente</th>
+                      <th className="py-3.5 px-4 font-medium">Situação</th>
+                      <th className="py-3.5 px-4 font-medium text-right">Valor</th>
+                      <th className="py-3.5 pl-4 pr-5 font-medium text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6 text-[13.5px]">
+                    {filteredEntries.map((entry) => {
+                      const client = getClient(entry.clienteId);
+                      const isInflow = entry.tipo === 'receber';
+                      const isPaid = entry.status === 'liquidado';
+                      const statusLabel = isInflow
+                        ? isPaid
+                          ? 'Recebido'
+                          : 'A receber'
+                        : isPaid
+                          ? 'Pago'
+                          : 'A pagar';
+                      const dotClass = isPaid
+                        ? 'bg-[#15803d] dark:bg-[#4ade80]'
+                        : isInflow
+                          ? 'bg-[#163744] dark:bg-[#9fdce6]'
+                          : 'bg-[#b45309] dark:bg-[#fbbf24]';
+                      const textClass = isPaid
+                        ? 'text-[#166534] dark:text-[#4ade80]'
+                        : isInflow
+                          ? 'text-[#163744] dark:text-[#9fdce6]'
+                          : 'text-[#92400e] dark:text-[#fbbf24]';
 
-                <div className="text-right tabular-nums">
-                  <div className="text-[11.5px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
-                    Saldo projetado
-                  </div>
-                  <div className="text-[22px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-[#f2f4f7]">
-                    {formatBRL(totals.saldoProjetado)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Barra proporcional limpa de 3 segmentos */}
-              <div className="h-1.5 w-full rounded-full bg-[#ebeff3] dark:bg-[#1e242e] overflow-hidden flex gap-0.5">
-                <div
-                  className="h-full bg-[#15803d] dark:bg-[#4ade80] transition-all duration-300"
-                  style={{ width: `${totals.pctRecebido}%` }}
-                  title={`Recebido: ${formatBRL(totals.recebido)}`}
-                />
-                <div
-                  className="h-full bg-[#163744] dark:bg-[#9fdce6] transition-all duration-300"
-                  style={{ width: `${totals.pctAReceber}%` }}
-                  title={`A receber: ${formatBRL(totals.aReceber)}`}
-                />
-                <div
-                  className="h-full bg-[#b45309]/75 dark:bg-[#fbbf24]/75 transition-all duration-300"
-                  style={{ width: `${totals.pctSaidas}%` }}
-                  title={`Saídas: ${formatBRL(totals.pago + totals.aPagar)}`}
-                />
-              </div>
-            </div>
-
-            {/* Tabela limpa de folha inteira */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8 text-[11.5px] font-medium text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
-                    <th className="py-3 pl-6 lg:pl-9 pr-4 font-medium">Vencimento</th>
-                    <th className="py-3 px-4 font-medium">Lançamento</th>
-                    <th className="py-3 px-4 font-medium">Cliente</th>
-                    <th className="py-3 px-4 font-medium">Situação</th>
-                    <th className="py-3 px-4 font-medium text-right">Valor</th>
-                    <th className="py-3 pl-4 pr-6 lg:pr-9 font-medium text-right">Ação</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6 text-[13.5px]">
-                  {filteredEntries.map((entry) => {
-                    const client = getClient(entry.clienteId);
-                    const isInflow = entry.tipo === 'receber';
-                    const isPaid = entry.status === 'liquidado';
-                    const statusLabel = isInflow
-                      ? isPaid
-                        ? 'Recebido'
-                        : 'A receber'
-                      : isPaid
-                        ? 'Pago'
-                        : 'A pagar';
-                    const dotClass = isPaid
-                      ? 'bg-[#15803d] dark:bg-[#4ade80]'
-                      : isInflow
-                        ? 'bg-[#163744] dark:bg-[#9fdce6]'
-                        : 'bg-[#b45309] dark:bg-[#fbbf24]';
-                    const textClass = isPaid
-                      ? 'text-[#166534] dark:text-[#4ade80]'
-                      : isInflow
-                        ? 'text-[#163744] dark:text-[#9fdce6]'
-                        : 'text-[#92400e] dark:text-[#fbbf24]';
-
-                    return (
-                      <tr
-                        key={entry.id}
-                        className="group hover:bg-[#f6f8fa] dark:hover:bg-[#191d26] transition-colors"
-                      >
-                        <td className="py-3.5 pl-6 lg:pl-9 pr-4 tabular-nums text-[12.5px] text-[#0f1115]/58 dark:text-[#f2f4f7]/58 whitespace-nowrap">
-                          {formatShortDate(entry.vencimento)}
-                        </td>
-                        <td className="py-3.5 px-4 min-w-[220px]">
-                          <div className="font-medium text-[#0f1115] dark:text-[#f2f4f7]">
-                            {entry.descricao}
-                          </div>
-                          <div className="text-[11.5px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
-                            {entry.categoria}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <span className="text-[12.5px] font-medium text-[#0f1115]/75 dark:text-[#f2f4f7]/75">
-                            {client?.nome ?? 'Eagle'}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <StatusIndicator
-                            label={statusLabel}
-                            dotClass={dotClass}
-                            textClass={textClass}
-                          />
-                        </td>
-                        <td
-                          className={`py-3.5 px-4 text-right font-semibold tabular-nums whitespace-nowrap ${
-                            isInflow
-                              ? 'text-[#0f1115] dark:text-[#f2f4f7]'
-                              : 'text-[#0f1115]/68 dark:text-[#f2f4f7]/68'
-                          }`}
+                      return (
+                        <tr
+                          key={entry.id}
+                          className="group hover:bg-[#f6f8fa] dark:hover:bg-[#191d26] transition-colors"
                         >
-                          {isInflow ? '+' : '−'} {formatBRL(entry.valorCentavos)}
-                        </td>
-                        <td className="py-3.5 pl-4 pr-6 lg:pr-9 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => toggleFinanceStatus(entry.id)}
-                            className="eagle-btn-secondary inline-flex items-center gap-1 h-7.5 px-2.5 text-[12px] font-medium cursor-pointer"
-                          >
-                            <Check className="w-3 h-3" />
-                            <span>
-                              {isPaid
-                                ? 'Reabrir'
-                                : isInflow
-                                  ? 'Receber'
-                                  : 'Pagar'}
+                          <td className="py-3 pl-5 pr-4 tabular-nums text-[12.5px] text-[#0f1115]/58 dark:text-[#f2f4f7]/58 whitespace-nowrap">
+                            {formatShortDate(entry.vencimento)}
+                          </td>
+                          <td className="py-3 px-4 min-w-[220px]">
+                            <div className="font-medium text-[#0f1115] dark:text-[#f2f4f7]">
+                              {entry.descricao}
+                            </div>
+                            <div className="text-[11.5px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                              {entry.categoria}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="text-[12.5px] font-medium text-[#0f1115]/75 dark:text-[#f2f4f7]/75">
+                              {client?.nome ?? 'Eagle'}
                             </span>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <StatusIndicator
+                              label={statusLabel}
+                              dotClass={dotClass}
+                              textClass={textClass}
+                            />
+                          </td>
+                          <td
+                            className={`py-3 px-4 text-right font-semibold tabular-nums whitespace-nowrap ${
+                              isInflow
+                                ? 'text-[#0f1115] dark:text-[#f2f4f7]'
+                                : 'text-[#0f1115]/68 dark:text-[#f2f4f7]/68'
+                            }`}
+                          >
+                            {isInflow ? '+' : '−'} {formatBRL(entry.valorCentavos)}
+                          </td>
+                          <td className="py-3 pl-4 pr-5 text-right whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => toggleFinanceStatus(entry.id)}
+                              className="eagle-btn-secondary inline-flex items-center gap-1 h-7.5 px-2.5 text-[12px] font-medium cursor-pointer"
+                            >
+                              <Check className="w-3 h-3" />
+                              <span>
+                                {isPaid
+                                  ? 'Reabrir'
+                                  : isInflow
+                                    ? 'Receber'
+                                    : 'Pagar'}
+                              </span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </BentoCard>
+          )}
+        </div>
       </div>
 
       {isNewModalOpen && (

@@ -1,6 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowUpRight, Check, Maximize2, RotateCcw, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  Maximize2,
+  MessageSquarePlus,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import {
   EmptyState,
   MemberAvatar,
@@ -8,6 +15,7 @@ import {
   SegmentedControl,
   StatusIndicator,
 } from '../components/SharedUI';
+import { BentoCard } from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import { DECISION_STATUS_META } from '../utils/formatters';
 
@@ -26,6 +34,7 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
   const [tab, setTab] = useState<'pendentes' | 'resolvidas'>('pendentes');
   const [search, setSearch] = useState('');
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [openNoteIds, setOpenNoteIds] = useState<Record<string, boolean>>({});
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -68,18 +77,18 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
         title="Decisões"
         searchValue={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Buscar pedido, projeto ou solicitante..."
+        searchPlaceholder="Buscar pedido, projeto ou agente..."
         filters={filtersSlot}
         onOpenMobileMenu={onOpenMobileMenu}
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-5 lg:p-7">
         {filtered.length === 0 ? (
-          <div className="p-6 lg:p-9 max-w-4xl mx-auto">
+          <div className="max-w-3xl mx-auto pt-4">
             <EmptyState
               title={
                 tab === 'pendentes'
-                  ? 'Nenhuma decisão aguardando sua resposta neste momento.'
+                  ? 'Nenhuma decisão aguardando seu sim ou não neste momento.'
                   : 'Nenhuma decisão resolvida corresponde à busca.'
               }
               actionLabel={tab === 'pendentes' ? 'Ver tarefas do estúdio' : 'Ver pendentes'}
@@ -89,9 +98,9 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
             />
           </div>
         ) : (
-          <div className="divide-y divide-[#0f1115]/8 dark:divide-[#f2f4f7]/8">
+          <div className="max-w-[1380px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-5">
             <AnimatePresence initial={false}>
-              {filtered.map((dec, idx) => {
+              {filtered.map((dec) => {
                 const requester = getMember(dec.solicitanteId);
                 const project = getProject(dec.projetoId);
                 const task = getTask(dec.tarefaId);
@@ -100,6 +109,7 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
                   : undefined;
                 const statusMeta = DECISION_STATUS_META[dec.status];
                 const noteVal = notes[dec.id] ?? '';
+                const noteOpen = Boolean(openNoteIds[dec.id]);
 
                 return (
                   <motion.article
@@ -107,56 +117,118 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
                     layout
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
-                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-                    className="px-6 lg:px-9 py-6 hover:bg-[#f6f8fa]/70 dark:hover:bg-[#191d26]/55 transition-colors"
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex"
                   >
-                    <div className="max-w-5xl flex flex-col lg:flex-row gap-6 justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 text-[12px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
-                          <span className="tabular-nums font-semibold text-[#0f1115]/35 dark:text-[#f2f4f7]/35 mr-1">
-                            {String(idx + 1).padStart(2, '0')}
-                          </span>
-                          <MemberAvatar member={requester} size="xs" showOperationalRing />
-                          <span className="font-medium text-[#0f1115]/82 dark:text-[#f2f4f7]/82">
-                            {requester?.nome}
-                          </span>
-                          <span>·</span>
-                          <span>{requester?.cargo}</span>
-                          <span>·</span>
-                          <span className="font-medium text-[#163744] dark:text-[#9fdce6]">
-                            {project?.nome}
-                          </span>
-                          <span>·</span>
-                          <span className="tabular-nums">{dec.criadoEm}</span>
-                          <span className="ml-auto">
-                            <StatusIndicator
-                              label={statusMeta.label}
-                              dotClass={statusMeta.dotClass}
-                              textClass={statusMeta.textClass}
-                            />
-                          </span>
+                    <BentoCard className="w-full flex flex-col overflow-hidden">
+                      {/* Cabeçalho do card: quem pede + projeto + estado */}
+                      <div className="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <MemberAvatar member={requester} size="sm" showOperationalRing />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                              <span>{requester?.nome}</span>
+                              <span className="text-[#0f1115]/35 dark:text-[#f2f4f7]/35">·</span>
+                              <span className="text-[#163744] dark:text-[#9fdce6] truncate">
+                                {project?.nome}
+                              </span>
+                            </div>
+                            <div className="text-[11.5px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48 truncate tabular-nums">
+                              {requester?.cargo} · {dec.criadoEm}
+                            </div>
+                          </div>
                         </div>
 
-                        <h2 className="mt-2.5 text-[17.5px] font-semibold tracking-[-0.015em] text-[#0f1115] dark:text-[#f2f4f7] leading-snug">
+                        <StatusIndicator
+                          label={statusMeta.label}
+                          dotClass={statusMeta.dotClass}
+                          textClass={statusMeta.textClass}
+                        />
+                      </div>
+
+                      {/* Área visual em destaque (prévia grande ou quadro focal) */}
+                      <div className="px-5">
+                        {artifact?.previewUrl ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPreviewArtifact({ artifact, taskId: task?.id })
+                            }
+                            className="relative w-full h-48 rounded-[12px] overflow-hidden bg-[#ebeff3] dark:bg-[#10141b] group cursor-pointer block text-left"
+                          >
+                            <img
+                              src={artifact.previewUrl}
+                              alt={artifact.titulo}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                            />
+                            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 via-black/35 to-transparent flex items-end justify-between p-3.5">
+                              <div className="min-w-0">
+                                <div className="text-[12.5px] font-medium text-white truncate">
+                                  {artifact.titulo}
+                                </div>
+                                <div className="text-[11px] text-white/75 tabular-nums">
+                                  {artifact.versao} · {artifact.formato} · {artifact.tamanho}
+                                </div>
+                              </div>
+                              <span className="w-7.5 h-7.5 rounded-[8px] bg-white/18 backdrop-blur-xs text-white inline-flex items-center justify-center shrink-0">
+                                <Maximize2 className="w-3.5 h-3.5" />
+                              </span>
+                            </div>
+                          </button>
+                        ) : (
+                          <div className="rounded-[12px] bg-[#f2f4f7]/85 dark:bg-[#10141b] p-4 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48 tabular-nums">
+                              <span>Pedido direto</span>
+                              {task && <span>{task.codigo}</span>}
+                            </div>
+                            <p className="text-[14px] font-medium text-[#0f1115] dark:text-[#f2f4f7] leading-snug">
+                              {dec.pergunta}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Título e resumo objetivo */}
+                      <div className="px-5 pt-3.5 pb-4 flex-1 space-y-1">
+                        <h2 className="text-[15.5px] font-semibold tracking-[-0.015em] text-[#0f1115] dark:text-[#f2f4f7] leading-snug">
                           {dec.titulo}
                         </h2>
-                        <p className="mt-1.5 text-[14.5px] text-[#0f1115]/86 dark:text-[#f2f4f7]/86 leading-relaxed max-w-2xl">
-                          {dec.pergunta}
-                        </p>
-                        <p className="mt-1 text-[13px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55 leading-relaxed max-w-2xl">
+                        {artifact?.previewUrl && (
+                          <p className="text-[13px] text-[#0f1115]/82 dark:text-[#f2f4f7]/82 leading-snug">
+                            {dec.pergunta}
+                          </p>
+                        )}
+                        <p className="text-[12.5px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 line-clamp-2 leading-relaxed">
                           {dec.contexto}
                         </p>
 
                         {dec.respostaLucas && (
-                          <div className="mt-3 text-[13px] text-[#163744] dark:text-[#9fdce6] font-medium">
+                          <div className="pt-1.5 text-[12.5px] font-medium text-[#163744] dark:text-[#9fdce6]">
                             Sua resposta: {dec.respostaLucas}
                           </div>
                         )}
+                      </div>
 
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                      {/* Barra inferior clara de Sim / Ajuste / Não */}
+                      <div className="px-5 py-3.5 border-t border-[#0f1115]/7 dark:border-[#f2f4f7]/7 bg-[#f2f4f7]/45 dark:bg-[#11141a] space-y-2.5">
+                        {dec.status === 'pendente' && noteOpen && (
+                          <input
+                            type="text"
+                            autoFocus
+                            value={noteVal}
+                            onChange={(e) =>
+                              setNotes((prev) => ({ ...prev, [dec.id]: e.target.value }))
+                            }
+                            placeholder="Observação rápida para o responsável..."
+                            className="eagle-input w-full h-8.5 px-3 text-[12.5px]"
+                          />
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           {dec.status === 'pendente' ? (
-                            <>
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <button
                                 type="button"
                                 onClick={() => resolveDecision(dec.id, 'aprovada', noteVal)}
@@ -178,23 +250,37 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
                               <button
                                 type="button"
                                 onClick={() => resolveDecision(dec.id, 'recusada', noteVal)}
-                                className="h-8.5 px-2.5 rounded-[10px] text-[12.5px] font-medium text-[#991b1b] dark:text-[#f87171] hover:bg-[#b91c1c]/8 dark:hover:bg-[#f87171]/10 inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
+                                title="Recusar pedido"
+                                className="h-8.5 px-2.5 rounded-[10px] text-[12.5px] font-medium text-[#991b1b] dark:text-[#f87171] hover:bg-[#b91c1c]/8 dark:hover:bg-[#f87171]/12 inline-flex items-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
                               >
                                 <X className="w-3.5 h-3.5" />
                                 <span>Recusar</span>
                               </button>
 
-                              <input
-                                type="text"
-                                value={noteVal}
-                                onChange={(e) =>
-                                  setNotes((prev) => ({ ...prev, [dec.id]: e.target.value }))
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenNoteIds((prev) => ({
+                                    ...prev,
+                                    [dec.id]: !prev[dec.id],
+                                  }))
                                 }
-                                placeholder="Nota opcional..."
-                                className="eagle-input flex-1 min-w-[160px] max-w-xs h-8.5 px-3 text-[12.5px]"
-                              />
-                            </>
-                          ) : null}
+                                title="Adicionar observação"
+                                aria-label="Adicionar observação"
+                                className={`w-8.5 h-8.5 rounded-[10px] inline-flex items-center justify-center transition-colors cursor-pointer ${
+                                  noteOpen
+                                    ? 'bg-[#163744]/10 text-[#163744] dark:bg-[#9fdce6]/16 dark:text-[#9fdce6]'
+                                    : 'text-[#0f1115]/48 dark:text-[#f2f4f7]/48 hover:bg-[#0f1115]/6 dark:hover:bg-[#f2f4f7]/8'
+                                }`}
+                              >
+                                <MessageSquarePlus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[12px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
+                              Decisão registrada
+                            </span>
+                          )}
 
                           {task && (
                             <button
@@ -203,7 +289,7 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
                                 setSelectedTaskId(task.id);
                                 setActiveSection('tarefas');
                               }}
-                              className="inline-flex items-center gap-1 h-8.5 px-2 text-[12.5px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 hover:text-[#163744] dark:hover:text-[#9fdce6] transition-colors cursor-pointer whitespace-nowrap"
+                              className="inline-flex items-center gap-1 h-8 px-2 text-[12px] font-medium text-[#0f1115]/62 dark:text-[#f2f4f7]/62 hover:text-[#163744] dark:hover:text-[#9fdce6] transition-colors cursor-pointer whitespace-nowrap ml-auto"
                             >
                               <span>Abrir {task.codigo}</span>
                               <ArrowUpRight className="w-3.5 h-3.5" />
@@ -211,27 +297,7 @@ export function DecisionsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => vo
                           )}
                         </div>
                       </div>
-
-                      {artifact?.previewUrl && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setPreviewArtifact({ artifact, taskId: task?.id })
-                          }
-                          className="relative w-full lg:w-64 h-40 rounded-[14px] overflow-hidden border border-[#0f1115]/10 dark:border-[#f2f4f7]/12 shrink-0 group cursor-pointer self-start"
-                        >
-                          <img
-                            src={artifact.previewUrl}
-                            alt={artifact.titulo}
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-                          />
-                          <span className="absolute bottom-2.5 right-2.5 w-7 h-7 rounded-[8px] bg-[#0f1115]/70 text-[#f2f4f7] inline-flex items-center justify-center">
-                            <Maximize2 className="w-3.5 h-3.5" />
-                          </span>
-                        </button>
-                      )}
-                    </div>
+                    </BentoCard>
                   </motion.article>
                 );
               })}

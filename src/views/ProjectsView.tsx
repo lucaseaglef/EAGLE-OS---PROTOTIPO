@@ -8,6 +8,7 @@ import {
   SegmentedControl,
   StatusIndicator,
 } from '../components/SharedUI';
+import { BentoCard, MicroRing } from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import { ProjectStatus } from '../types/eagle';
 import {
@@ -135,14 +136,15 @@ export function ProjectsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => voi
             />
           </div>
         ) : (
-          <div className="h-full grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] min-h-0">
-            {/* Índice de pastas sem caixas aninhadas */}
-            <div className="overflow-y-auto border-b lg:border-b-0 lg:border-r border-[#0f1115]/8 dark:border-[#f2f4f7]/8 divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6">
+          <div className="h-full grid grid-cols-1 lg:grid-cols-[330px_minmax(0,1fr)] min-h-0">
+            {/* Índice de pastas com micro-barra de progresso */}
+            <div className="overflow-y-auto border-b lg:border-b-0 lg:border-r border-[#0f1115]/8 dark:border-[#f2f4f7]/8 divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6 bg-white/55 dark:bg-[#15181f]/55">
               {filteredProjects.map((proj) => {
                 const client = getClient(proj.clienteId);
                 const leader = getMember(proj.liderId);
                 const tasks = state.tasks.filter((t) => t.projetoId === proj.id);
                 const done = tasks.filter((t) => t.estado === 'concluida').length;
+                const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0;
                 const meta = PROJECT_STATUS_META[proj.estado];
                 const isSelected = activeProject?.id === proj.id;
 
@@ -153,8 +155,8 @@ export function ProjectsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => voi
                     onClick={() => setSelectedProjectId(proj.id)}
                     className={`relative w-full text-left px-5 py-4 transition-colors cursor-pointer ${
                       isSelected
-                        ? 'bg-[#ebeff3]/85 dark:bg-[#1e2530]'
-                        : 'hover:bg-[#f6f8fa] dark:hover:bg-[#191d26]'
+                        ? 'bg-white dark:bg-[#1b2029]'
+                        : 'hover:bg-white/75 dark:hover:bg-[#181c24]'
                     }`}
                   >
                     {isSelected && (
@@ -167,7 +169,7 @@ export function ProjectsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => voi
                     )}
                     <div className="flex items-center justify-between gap-2 text-[11.5px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
                       <span className="truncate font-medium">
-                        {client?.isInterno ? 'Interno · Eagle Digital House' : client?.nome}
+                        {client?.isInterno ? 'Interno · Eagle' : client?.nome}
                       </span>
                       <StatusIndicator
                         label={meta.label}
@@ -180,13 +182,20 @@ export function ProjectsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => voi
                       {proj.nome}
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
-                      <div className="flex items-center gap-2 min-w-0">
+                    <div className="mt-2.5 h-1 w-full rounded-full bg-[#e6e9ed] dark:bg-[#232934] overflow-hidden">
+                      <div
+                        className="h-full bg-[#163744] dark:bg-[#9fdce6] rounded-full transition-all duration-300"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2.5 flex items-center justify-between text-[11.5px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <MemberAvatar member={leader} size="xs" showOperationalRing />
                         <span className="truncate">{leader?.nome}</span>
                       </div>
                       <span className="tabular-nums shrink-0">
-                        {done}/{tasks.length} tarefas · {formatShortDate(proj.prazoEntrega)}
+                        {done}/{tasks.length} · {formatShortDate(proj.prazoEntrega)}
                       </span>
                     </div>
                   </button>
@@ -194,217 +203,288 @@ export function ProjectsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => voi
               })}
             </div>
 
-            {activeProject && (
-              <div className="flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#15181f]">
-                <div className="px-6 lg:px-8 py-5 border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
-                        <Folder className="w-3.5 h-3.5" />
-                        <span>{getClient(activeProject.clienteId)?.nome}</span>
-                        <span>·</span>
-                        <span>{activeProject.configuracoes.disciplina}</span>
+            {activeProject && (() => {
+              const doneCount = projectTasks.filter((t) => t.estado === 'concluida').length;
+              const openCount = projectTasks.filter(
+                (t) => t.estado !== 'concluida' && t.estado !== 'cancelada'
+              ).length;
+              const pct = projectTasks.length
+                ? Math.round((doneCount / projectTasks.length) * 100)
+                : 0;
+              const leader = getMember(activeProject.liderId);
+
+              return (
+                <div className="flex flex-col h-full min-h-0 overflow-hidden">
+                  {/* Cabeçalho da pasta + faixa visual de saúde */}
+                  <div className="px-6 lg:px-8 py-5 bg-white dark:bg-[#15181f] border-b border-[#0f1115]/8 dark:border-[#f2f4f7]/8 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
+                          <Folder className="w-3.5 h-3.5" />
+                          <span>{getClient(activeProject.clienteId)?.nome}</span>
+                          <span>·</span>
+                          <span>{activeProject.configuracoes.disciplina}</span>
+                        </div>
+                        <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.015em] text-[#0f1115] dark:text-[#f2f4f7]">
+                          {activeProject.nome}
+                        </h2>
+                        {activeProject.descricao && (
+                          <p className="mt-1 text-[13px] text-[#0f1115]/60 dark:text-[#f2f4f7]/60 max-w-2xl line-clamp-2">
+                            {activeProject.descricao}
+                          </p>
+                        )}
                       </div>
-                      <h2 className="mt-1 text-[19px] font-semibold tracking-[-0.015em] text-[#0f1115] dark:text-[#f2f4f7]">
-                        {activeProject.nome}
-                      </h2>
-                      {activeProject.descricao && (
-                        <p className="mt-1.5 text-[13.5px] text-[#0f1115]/65 dark:text-[#f2f4f7]/65 max-w-2xl">
-                          {activeProject.descricao}
-                        </p>
-                      )}
+
+                      <SegmentedControl
+                        layoutId="project-folder-tab"
+                        ariaLabel="Conteúdo da pasta"
+                        value={folderTab}
+                        onChange={setFolderTab}
+                        options={[
+                          { id: 'tarefas', label: `Tarefas (${projectTasks.length})` },
+                          { id: 'arquivos', label: `Arquivos (${projectArtifacts.length})` },
+                          { id: 'config', label: 'Configurações' },
+                        ]}
+                      />
                     </div>
 
-                    <SegmentedControl
-                      layoutId="project-folder-tab"
-                      ariaLabel="Conteúdo da pasta"
-                      value={folderTab}
-                      onChange={setFolderTab}
-                      options={[
-                        { id: 'tarefas', label: `Tarefas (${projectTasks.length})` },
-                        { id: 'arquivos', label: `Arquivos (${projectArtifacts.length})` },
-                        { id: 'config', label: 'Configurações' },
-                      ]}
-                    />
-                  </div>
-                </div>
+                    {/* 4 micro-indicadores da pasta */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      <div className="rounded-[11px] bg-[#f2f4f7]/85 dark:bg-[#10141b] px-3.5 py-2.5 flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-[11px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                            Avanço
+                          </div>
+                          <div className="text-[14px] font-semibold tabular-nums text-[#0f1115] dark:text-[#f2f4f7]">
+                            {doneCount}/{projectTasks.length}
+                          </div>
+                        </div>
+                        <MicroRing value={pct} size={34} strokeWidth={3.5} label={`${pct}%`} />
+                      </div>
 
-                <div className="flex-1 overflow-y-auto px-6 lg:px-8 py-5">
-                  {folderTab === 'tarefas' && (
-                    <div className="divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6">
-                      {projectTasks.length === 0 ? (
-                        <EmptyState
-                          title="Este projeto ainda não tem tarefas abertas."
-                          actionLabel="Ir para Tarefas"
-                          onAction={() => setActiveSection('tarefas')}
-                        />
-                      ) : (
-                        projectTasks.map((t) => {
-                          const member = getMember(t.responsavelId);
-                          const st = TASK_STATUS_META[t.estado];
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedTaskId(t.id);
-                                setActiveSection('tarefas');
-                              }}
-                              className="w-full py-3.5 px-2.5 -mx-2.5 rounded-[10px] flex items-center justify-between gap-4 text-left hover:bg-[#f6f8fa] dark:hover:bg-[#191d26] transition-colors cursor-pointer group"
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <MemberAvatar member={member} size="sm" showOperationalRing />
-                                <div className="min-w-0">
-                                  <div className="text-[13.5px] font-medium text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                      <div className="rounded-[11px] bg-[#f2f4f7]/85 dark:bg-[#10141b] px-3.5 py-2.5">
+                        <div className="text-[11px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                          Em aberto
+                        </div>
+                        <div className="mt-0.5 text-[15px] font-semibold tabular-nums text-[#163744] dark:text-[#9fdce6]">
+                          {openCount} tarefas
+                        </div>
+                      </div>
+
+                      <div className="rounded-[11px] bg-[#f2f4f7]/85 dark:bg-[#10141b] px-3.5 py-2.5">
+                        <div className="text-[11px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                          Líder
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-[13px] font-medium text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                          <MemberAvatar member={leader} size="xs" />
+                          <span className="truncate">{leader?.nome}</span>
+                        </div>
+                      </div>
+
+                      <div className="rounded-[11px] bg-[#f2f4f7]/85 dark:bg-[#10141b] px-3.5 py-2.5">
+                        <div className="text-[11px] text-[#0f1115]/48 dark:text-[#f2f4f7]/48">
+                          Entrega final
+                        </div>
+                        <div className="mt-0.5 text-[14px] font-semibold tabular-nums text-[#0f1115] dark:text-[#f2f4f7]">
+                          {formatShortDate(activeProject.prazoEntrega)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-5 lg:p-7">
+                    {folderTab === 'tarefas' && (
+                      <div>
+                        {projectTasks.length === 0 ? (
+                          <EmptyState
+                            title="Este projeto ainda não tem tarefas abertas."
+                            actionLabel="Ir para Tarefas"
+                            onAction={() => setActiveSection('tarefas')}
+                          />
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {projectTasks.map((t) => {
+                              const member = getMember(t.responsavelId);
+                              const st = TASK_STATUS_META[t.estado];
+                              const doneSub = t.subtarefas.filter((s) => s.concluida).length;
+                              return (
+                                <BentoCard
+                                  key={t.id}
+                                  onClick={() => {
+                                    setSelectedTaskId(t.id);
+                                    setActiveSection('tarefas');
+                                  }}
+                                  className="p-4 flex flex-col justify-between gap-3 group"
+                                >
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[11.5px] font-medium text-[#0f1115]/45 dark:text-[#f2f4f7]/45 tabular-nums">
+                                      {t.codigo}
+                                    </span>
+                                    <StatusIndicator
+                                      label={st.label}
+                                      dotClass={st.dotClass}
+                                      textClass={st.textClass}
+                                      live={t.estado === 'em_andamento'}
+                                    />
+                                  </div>
+
+                                  <div className="text-[14px] font-semibold text-[#0f1115] dark:text-[#f2f4f7] leading-snug group-hover:text-[#163744] dark:group-hover:text-[#9fdce6] transition-colors">
                                     {t.titulo}
                                   </div>
-                                  <div className="text-[12px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50 tabular-nums mt-0.5">
-                                    {t.codigo} · {member?.nome} · Prazo {formatShortDate(t.prazo)}
+
+                                  <div className="flex items-center justify-between gap-2 pt-1 text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <MemberAvatar
+                                        member={member}
+                                        size="xs"
+                                        showOperationalRing
+                                      />
+                                      <span className="truncate">{member?.nome}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2.5 shrink-0 tabular-nums">
+                                      {t.subtarefas.length > 0 && (
+                                        <span>
+                                          {doneSub}/{t.subtarefas.length}
+                                        </span>
+                                      )}
+                                      <span>{formatShortDate(t.prazo)}</span>
+                                      <ArrowRight className="w-3.5 h-3.5 opacity-40 group-hover:opacity-100" />
+                                    </div>
+                                  </div>
+                                </BentoCard>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {folderTab === 'arquivos' && (
+                      <div>
+                        {projectArtifacts.length === 0 ? (
+                          <EmptyState title="Nenhum artefato produzido nas tarefas deste projeto ainda." />
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {projectArtifacts.map(({ artifact, taskId, taskTitle }) => (
+                              <BentoCard
+                                key={artifact.id}
+                                onClick={() => setPreviewArtifact({ artifact, taskId })}
+                                className="overflow-hidden group"
+                              >
+                                {artifact.previewUrl ? (
+                                  <img
+                                    src={artifact.previewUrl}
+                                    alt={artifact.titulo}
+                                    referrerPolicy="no-referrer"
+                                    className="w-full h-40 object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                                  />
+                                ) : (
+                                  <div className="h-24 px-4 bg-[#f2f4f7] dark:bg-[#10141b] flex items-center gap-2 text-[#163744] dark:text-[#9fdce6]">
+                                    <FileText className="w-4 h-4" />
+                                    <span className="text-[13px] font-medium">Documento</span>
+                                  </div>
+                                )}
+                                <div className="p-3.5">
+                                  <div className="text-[13.5px] font-semibold text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                                    {artifact.titulo}
+                                  </div>
+                                  <div className="text-[12px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50 tabular-nums mt-0.5 truncate">
+                                    {artifact.versao} · {artifact.formato} · {taskTitle}
                                   </div>
                                 </div>
-                              </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <StatusIndicator
-                                  label={st.label}
-                                  dotClass={st.dotClass}
-                                  textClass={st.textClass}
-                                  live={t.estado === 'em_andamento'}
-                                />
-                                <ArrowRight className="w-3.5 h-3.5 text-[#0f1115]/30 dark:text-[#f2f4f7]/30 group-hover:text-[#163744] dark:group-hover:text-[#9fdce6] transition-colors" />
-                              </div>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-
-                  {folderTab === 'arquivos' && (
-                    <div>
-                      {projectArtifacts.length === 0 ? (
-                        <EmptyState title="Nenhum artefato produzido nas tarefas deste projeto ainda." />
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {projectArtifacts.map(({ artifact, taskId, taskTitle }) => (
-                            <button
-                              key={artifact.id}
-                              type="button"
-                              onClick={() => setPreviewArtifact({ artifact, taskId })}
-                              className="eagle-card eagle-card-interactive text-left overflow-hidden cursor-pointer group"
-                            >
-                              {artifact.previewUrl ? (
-                                <img
-                                  src={artifact.previewUrl}
-                                  alt={artifact.titulo}
-                                  referrerPolicy="no-referrer"
-                                  className="w-full h-40 object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                                />
-                              ) : (
-                                <div className="h-24 px-4 flex items-center gap-2 text-[#163744] dark:text-[#9fdce6]">
-                                  <FileText className="w-4 h-4" />
-                                  <span className="text-[13px] font-medium">Documento</span>
-                                </div>
-                              )}
-                              <div className="p-3.5">
-                                <div className="text-[13.5px] font-medium text-[#0f1115] dark:text-[#f2f4f7] truncate">
-                                  {artifact.titulo}
-                                </div>
-                                <div className="text-[12px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50 tabular-nums mt-0.5 truncate">
-                                  {artifact.versao} · {artifact.formato} · {taskTitle}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {folderTab === 'config' && (
-                    <div className="max-w-lg space-y-4">
-                      <div>
-                        <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
-                          Estado do projeto
-                        </label>
-                        <select
-                          value={activeProject.estado}
-                          onChange={(e) =>
-                            updateProjectStatus(
-                              activeProject.id,
-                              e.target.value as ProjectStatus
-                            )
-                          }
-                          className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
-                        >
-                          <option value="ativo">Ativo</option>
-                          <option value="em_pausa">Em pausa</option>
-                          <option value="concluido">Concluído</option>
-                        </select>
+                              </BentoCard>
+                            ))}
+                          </div>
+                        )}
                       </div>
+                    )}
 
-                      <div>
-                        <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
-                          Disciplina principal
-                        </label>
-                        <input
-                          type="text"
-                          value={activeProject.configuracoes.disciplina}
-                          onChange={(e) =>
-                            updateProjectSettings(activeProject.id, {
-                              disciplina: e.target.value,
-                            })
-                          }
-                          className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
-                          Ritmo de revisão
-                        </label>
-                        <input
-                          type="text"
-                          value={activeProject.configuracoes.ritmoRevisao}
-                          onChange={(e) =>
-                            updateProjectSettings(activeProject.id, {
-                              ritmoRevisao: e.target.value,
-                            })
-                          }
-                          className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between gap-4 pt-2">
+                    {folderTab === 'config' && (
+                      <BentoCard className="max-w-lg p-5 space-y-4">
                         <div>
-                          <div className="text-[13.5px] font-medium text-[#0f1115] dark:text-[#f2f4f7]">
-                            Exigir aprovação final do Lucas
-                          </div>
-                          <div className="text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
-                            Agentes enviam artefatos críticos para a fila de Decisões.
-                          </div>
+                          <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
+                            Estado do projeto
+                          </label>
+                          <select
+                            value={activeProject.estado}
+                            onChange={(e) =>
+                              updateProjectStatus(
+                                activeProject.id,
+                                e.target.value as ProjectStatus
+                              )
+                            }
+                            className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
+                          >
+                            <option value="ativo">Ativo</option>
+                            <option value="em_pausa">Em pausa</option>
+                            <option value="concluido">Concluído</option>
+                          </select>
                         </div>
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={activeProject.configuracoes.aprovacaoDiretaLucas}
-                          aria-label="Exigir aprovação final do Lucas"
-                          data-checked={activeProject.configuracoes.aprovacaoDiretaLucas}
-                          onClick={() =>
-                            updateProjectSettings(activeProject.id, {
-                              aprovacaoDiretaLucas:
-                                !activeProject.configuracoes.aprovacaoDiretaLucas,
-                            })
-                          }
-                          className="eagle-switch cursor-pointer shrink-0"
-                        >
-                          <span className="eagle-switch-thumb" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
+                            Disciplina principal
+                          </label>
+                          <input
+                            type="text"
+                            value={activeProject.configuracoes.disciplina}
+                            onChange={(e) =>
+                              updateProjectSettings(activeProject.id, {
+                                disciplina: e.target.value,
+                              })
+                            }
+                            className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[12px] font-medium text-[#0f1115]/60 dark:text-[#f2f4f7]/60 mb-1">
+                            Ritmo de revisão
+                          </label>
+                          <input
+                            type="text"
+                            value={activeProject.configuracoes.ritmoRevisao}
+                            onChange={(e) =>
+                              updateProjectSettings(activeProject.id, {
+                                ritmoRevisao: e.target.value,
+                              })
+                            }
+                            className="eagle-input w-full h-9.5 px-3 text-[13.5px]"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 pt-2 border-t border-[#0f1115]/7 dark:border-[#f2f4f7]/7">
+                          <div>
+                            <div className="text-[13.5px] font-medium text-[#0f1115] dark:text-[#f2f4f7]">
+                              Exigir aprovação final do Lucas
+                            </div>
+                            <div className="text-[12px] text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
+                              Agentes enviam artefatos críticos para a fila de Decisões.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={activeProject.configuracoes.aprovacaoDiretaLucas}
+                            aria-label="Exigir aprovação final do Lucas"
+                            data-checked={activeProject.configuracoes.aprovacaoDiretaLucas}
+                            onClick={() =>
+                              updateProjectSettings(activeProject.id, {
+                                aprovacaoDiretaLucas:
+                                  !activeProject.configuracoes.aprovacaoDiretaLucas,
+                              })
+                            }
+                            className="eagle-switch cursor-pointer shrink-0"
+                          >
+                            <span className="eagle-switch-thumb" />
+                          </button>
+                        </div>
+                      </BentoCard>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </div>
