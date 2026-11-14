@@ -1,0 +1,6 @@
+{
+  "name": "Eagle OS",
+  "description": "Sistema de trabalho da Eagle Digital House para gerenciar tarefas, conversas com agentes, decisões, projetos, clientes e financeiro.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

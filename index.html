@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Eagle OS — Eagle Digital House</title>
+    <meta
+      name="description"
+      content="Sistema de trabalho da Eagle Digital House para gerenciar tarefas, conversas com agentes, decisões, projetos, clientes e financeiro."
+    />
+    <meta property="og:title" content="Eagle OS — Eagle Digital House" />
+    <meta
+      property="og:description"
+      content="Sistema de trabalho da Eagle Digital House para gerenciar tarefas, conversas com agentes, decisões, projetos, clientes e financeiro."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('eagle-os-theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = saved === 'dark' || (!saved || saved === 'system') && prefersDark;
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-[#f2f4f7] text-[#0f1115] dark:bg-[#0f1115] dark:text-[#f2f4f7] antialiased selection:bg-[#163744] selection:text-[#f2f4f7] dark:selection:bg-[#9fdce6] dark:selection:text-[#0f1115]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
