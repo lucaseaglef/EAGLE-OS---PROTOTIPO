@@ -17,8 +17,9 @@ import {
 } from './views/OrganizationViews';
 import { ProjectsView } from './views/ProjectsView';
 import { TasksView } from './views/TasksView';
+import { ClientPortalApp } from './portal/ClientPortalApp';
 
-function AppWorkspace() {
+function AppWorkspace({ onOpenPortal }: { onOpenPortal: () => void }) {
   const {
     activeSection,
     previewArtifact,
@@ -64,6 +65,7 @@ function AppWorkspace() {
       <Sidebar
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
+        onOpenPortal={onOpenPortal}
       />
 
       {/* Folha principal elevada sobre a mesa de trabalho (em Tarefas, as folhas flutuam direto sobre a mesa) */}
@@ -121,10 +123,16 @@ function AppWorkspace() {
 }
 
 export default function App() {
+  const [workspaceMode, setWorkspaceMode] = useState<'studio' | 'portal'>('studio');
+
   return (
     <MotionConfig reducedMotion="user">
       <EagleProvider>
-        <AppWorkspace />
+        {workspaceMode === 'portal' ? (
+          <ClientPortalApp onBackToStudio={() => setWorkspaceMode('studio')} />
+        ) : (
+          <AppWorkspace onOpenPortal={() => setWorkspaceMode('portal')} />
+        )}
       </EagleProvider>
     </MotionConfig>
   );

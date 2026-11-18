@@ -511,7 +511,12 @@ export function SplineTrendChart({
         )}
       </div>
 
-      <div className="grid grid-cols-7 text-center">
+      <div
+        className="grid text-center"
+        style={{
+          gridTemplateColumns: `repeat(${Math.max(1, labels.length)}, minmax(0, 1fr))`,
+        }}
+      >
         {labels.map((lbl, idx) => (
           <span
             key={lbl}

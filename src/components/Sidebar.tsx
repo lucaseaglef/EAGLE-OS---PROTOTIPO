@@ -9,6 +9,7 @@ import {
   Compass,
   FolderKanban,
   GitBranch,
+  Globe,
   Inbox,
   LayoutGrid,
   Monitor,
@@ -40,9 +41,11 @@ const WEEK_LABELS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 export function Sidebar({
   mobileOpen,
   onCloseMobile,
+  onOpenPortal,
 }: {
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  onOpenPortal?: () => void;
 }) {
   const {
     state,
@@ -330,8 +333,25 @@ export function Sidebar({
         </div>
       </nav>
 
-      {/* Rodapé da folha contextual: Em ação agora + tema */}
+      {/* Rodapé da folha contextual: Portal do Cliente + Em ação agora + tema */}
       <div className="p-3 border-t border-[#0f1115]/6 dark:border-[#f2f4f7]/6 space-y-2.5 bg-[#f2f4f7]/45 dark:bg-[#11141a]">
+        {onOpenPortal && (
+          <button
+            type="button"
+            onClick={() => {
+              onCloseMobile();
+              onOpenPortal();
+            }}
+            className="w-full h-9 px-2.5 rounded-[10px] bg-[#163744] hover:bg-[#1d4757] dark:bg-[#9fdce6] dark:hover:bg-[#b6e6ee] text-white dark:text-[#0f1115] text-[12px] font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer"
+          >
+            <span className="inline-flex items-center gap-2 truncate">
+              <Globe className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Portal do Cliente</span>
+            </span>
+            <span className="text-[10px] opacity-75 shrink-0">Abrir</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => handleNavigate('agentes')}
@@ -450,6 +470,18 @@ export function Sidebar({
           </div>
 
           <div className="flex flex-col items-center gap-2">
+            {onOpenPortal && (
+              <button
+                type="button"
+                onClick={onOpenPortal}
+                title="Abrir Portal do Cliente"
+                aria-label="Abrir Portal do Cliente"
+                className="w-9.5 h-9.5 rounded-[11px] flex items-center justify-center bg-[#9fdce6]/18 text-[#9fdce6] hover:bg-[#9fdce6] hover:text-[#0f1115] border border-[#9fdce6]/25 transition-colors cursor-pointer"
+              >
+                <Globe className="w-4 h-4" />
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setIsSearchOpen(true)}
