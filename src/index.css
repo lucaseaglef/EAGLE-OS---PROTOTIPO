@@ -277,6 +277,19 @@
   animation: eagle-breathe 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 }
 
+@keyframes eagle-orb-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.eagle-orb-ring {
+  animation: eagle-orb-spin 7s linear infinite;
+}
+
 /* ==========================================================================
    BARRAS DE ROLAGEM DISCRETAS
    ========================================================================== */

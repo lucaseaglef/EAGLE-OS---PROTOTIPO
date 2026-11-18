@@ -34,11 +34,18 @@ import {
 import { BentoCard, MicroRing, ProportionBar } from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import {
+  calculateClientFinancialSummary,
+  calculateFixedCostsMonthly,
   DECISION_STATUS_META,
   formatBRL,
   formatShortDate,
+  getDaysSincePayment,
+  getOverdueDays,
+  isInvoiceNotePending,
+  isInvoiceOverdue,
   PROJECT_STATUS_META,
   TASK_STATUS_META,
+  TODAY_ISO,
 } from '../utils/formatters';
 
 function getInitials(name: string) {
@@ -95,6 +102,16 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
 
   const composerInputRef = useRef<HTMLInputElement | null>(null);
 
+  const fixedCostsMonthly = useMemo(
+    () => calculateFixedCostsMonthly(state.finances).totalMensalCentavos,
+    [state.finances]
+  );
+
+  const nonInternalCount = useMemo(
+    () => state.clients.filter((c) => !c.isInterno).length,
+    [state.clients]
+  );
+
   const clientSummaries = useMemo(() => {
     return state.clients.map((client) => {
       const projects = state.projects.filter((p) => p.clienteId === client.id);
@@ -120,6 +137,14 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
       const paid = finances
         .filter((f) => f.tipo === 'receber' && f.status === 'liquidado')
         .reduce((acc, f) => acc + f.valorCentavos, 0);
+      const financialSummary = calculateClientFinancialSummary(
+        client.id,
+        state.finances,
+        state.contracts,
+        nonInternalCount,
+        client.isInterno ? 0 : fixedCostsMonthly,
+        TODAY_ISO
+      );
 
       const primaryProject = projects[0];
       const leadId = primaryProject?.liderId ?? 'mem-lucas';
@@ -142,13 +167,23 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
         finances,
         receivable,
         paid,
+        financialSummary,
         leadId,
         coverUrl,
         hasAttention,
         isLive,
       };
     });
-  }, [state.clients, state.projects, state.tasks, state.decisions, state.finances]);
+  }, [
+    state.clients,
+    state.projects,
+    state.tasks,
+    state.decisions,
+    state.finances,
+    state.contracts,
+    nonInternalCount,
+    fixedCostsMonthly,
+  ]);
 
   const matrixCounts = useMemo(() => {
     const ativos = clientSummaries.filter((c) => c.client.status === 'ativo').length;
@@ -505,6 +540,7 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
                 finances,
                 receivable,
                 paid,
+                financialSummary,
                 leadId,
                 coverUrl,
               } = activeSummary;
@@ -1405,11 +1441,11 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div>
                                 <h3 className="text-[15px] font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
-                                  Movimentações da conta
+                                  Resultado financeiro do cliente
                                 </h3>
                                 <p className="text-[12px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 tabular-nums">
-                                  Total previsto: {formatBRL(receivable)} · Liquidado:{' '}
-                                  {formatBRL(paid)}
+                                  Recebido: {formatBRL(paid)} · Total contratado:{' '}
+                                  {formatBRL(receivable)}
                                 </p>
                               </div>
                               <Button
@@ -1422,6 +1458,146 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
                               </Button>
                             </div>
 
+                            {!client.isInterno && (
+                              <div className="rounded-[18px] bg-[#f6f8fa] dark:bg-[#10141b] border border-[#0f1115]/8 dark:border-[#f2f4f7]/8 p-4 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11.5px] font-medium text-[#0f1115]/55 dark:text-[#f2f4f7]/55">
+                                      Veredito de rentabilidade
+                                    </div>
+                                    <div className="mt-0.5 flex items-center gap-2.5">
+                                      <span
+                                        className={`text-[22px] font-semibold tracking-[-0.025em] tabular-nums ${
+                                          financialSummary.deuLucro
+                                            ? 'text-[#15803d] dark:text-[#4ade80]'
+                                            : 'text-[#b91c1c] dark:text-[#f87171]'
+                                        }`}
+                                      >
+                                        {financialSummary.deuLucro ? '+' : '−'}{' '}
+                                        {formatBRL(
+                                          Math.abs(financialSummary.lucroLiquidoCentavos)
+                                        )}
+                                      </span>
+                                      <Badge
+                                        variant={
+                                          financialSummary.margemPercentual >= 25
+                                            ? 'success'
+                                            : financialSummary.deuLucro
+                                              ? 'warning'
+                                              : 'danger'
+                                        }
+                                        size="sm"
+                                      >
+                                        {financialSummary.deuLucro
+                                          ? `Deu lucro · Margem ${financialSummary.margemPercentual}%`
+                                          : `Prejuízo · ${financialSummary.margemPercentual}%`}
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    {financialSummary.faturasVencidas.length > 0 && (
+                                      <Badge variant="danger" size="xs">
+                                        {financialSummary.faturasVencidas.length} vencida(s)
+                                      </Badge>
+                                    )}
+                                    {financialSummary.notasPendentes.length > 0 && (
+                                      <Badge variant="warning" size="xs">
+                                        {financialSummary.notasPendentes.length} nota pendente (+10d)
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1 text-[12px] tabular-nums">
+                                  <div className="rounded-[12px] bg-white dark:bg-[#15181f] p-2.5 border border-[#0f1115]/6 dark:border-white/6">
+                                    <div className="text-[11px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
+                                      Receita total
+                                    </div>
+                                    <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                                      {formatBRL(financialSummary.receitaTotalCentavos)}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-[12px] bg-white dark:bg-[#15181f] p-2.5 border border-[#0f1115]/6 dark:border-white/6">
+                                    <div className="text-[11px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
+                                      Custos diretos
+                                    </div>
+                                    <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                                      − {formatBRL(financialSummary.custosDiretosCentavos)}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-[12px] bg-white dark:bg-[#15181f] p-2.5 border border-[#0f1115]/6 dark:border-white/6">
+                                    <div className="text-[11px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
+                                      Impostos previstos
+                                    </div>
+                                    <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                                      − {formatBRL(financialSummary.impostosPrevistosCentavos)}
+                                    </div>
+                                  </div>
+                                  <div className="rounded-[12px] bg-white dark:bg-[#15181f] p-2.5 border border-[#0f1115]/6 dark:border-white/6">
+                                    <div className="text-[11px] text-[#0f1115]/50 dark:text-[#f2f4f7]/50">
+                                      Rateio fixo estúdio
+                                    </div>
+                                    <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                                      − {formatBRL(financialSummary.rateioCustosFixosCentavos)}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <ProportionBar
+                                  heightClass="h-1.5"
+                                  segments={[
+                                    {
+                                      key: 'lucro',
+                                      value: Math.max(0, financialSummary.lucroLiquidoCentavos),
+                                      colorClass: 'bg-[#15803d] dark:bg-[#4ade80]',
+                                    },
+                                    {
+                                      key: 'direto',
+                                      value: financialSummary.custosDiretosCentavos,
+                                      colorClass: 'bg-[#b45309] dark:bg-[#fbbf24]',
+                                    },
+                                    {
+                                      key: 'imp_fixo',
+                                      value:
+                                        financialSummary.impostosPrevistosCentavos +
+                                        financialSummary.rateioCustosFixosCentavos,
+                                      colorClass: 'bg-[#163744] dark:bg-[#9fdce6]',
+                                    },
+                                  ]}
+                                />
+                              </div>
+                            )}
+
+                            {financialSummary.clientContracts.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-[12px] font-semibold text-[#0f1115]/62 dark:text-[#f2f4f7]/62">
+                                  Contratos assinados
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                  {financialSummary.clientContracts.map((ctr) => (
+                                    <div
+                                      key={ctr.id}
+                                      className="rounded-[14px] bg-[#f6f8fa] dark:bg-[#10141b] border border-[#0f1115]/6 dark:border-white/6 p-3 flex items-center justify-between gap-3"
+                                    >
+                                      <div className="min-w-0">
+                                        <div className="text-[12.5px] font-semibold text-[#0f1115] dark:text-[#f2f4f7] truncate">
+                                          {ctr.titulo}
+                                        </div>
+                                        <div className="text-[11px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 tabular-nums">
+                                          {ctr.parcelas}× parcelas · Assinado{' '}
+                                          {formatShortDate(ctr.assinadoEm)}
+                                        </div>
+                                      </div>
+                                      <div className="text-[13px] font-semibold tabular-nums text-[#163744] dark:text-[#9fdce6] shrink-0">
+                                        {formatBRL(ctr.valorTotalCentavos)}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {finances.length === 0 ? (
                               <p className="text-[13px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 py-6">
                                 Nenhum lançamento financeiro cadastrado para este cliente.
@@ -1430,18 +1606,41 @@ export function ClientsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void
                               <div className="divide-y divide-[#0f1115]/6 dark:divide-[#f2f4f7]/6 rounded-[14px] bg-[#f6f8fa] dark:bg-[#10141b]">
                                 {finances.map((entry) => {
                                   const isPaid = entry.status === 'liquidado';
+                                  const overdue = isInvoiceOverdue(entry);
+                                  const noteWarn = isInvoiceNotePending(entry);
                                   return (
                                     <div
                                       key={entry.id}
                                       className="px-4 py-3 flex flex-wrap items-center justify-between gap-3"
                                     >
-                                      <div className="min-w-0">
-                                        <div className="text-[13.5px] font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
-                                          {entry.descricao}
+                                      <div className="min-w-0 space-y-0.5">
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                          <span className="text-[13.5px] font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                                            {entry.descricao}
+                                          </span>
+                                          {overdue && (
+                                            <Badge variant="danger" size="xs">
+                                              Vencida {getOverdueDays(entry)}d
+                                            </Badge>
+                                          )}
+                                          {noteWarn && (
+                                            <Badge variant="warning" size="xs">
+                                              Nota pendente ({getDaysSincePayment(entry)}d)
+                                            </Badge>
+                                          )}
+                                          {entry.isImposto && (
+                                            <Badge variant="neutral" size="xs">
+                                              Imposto auto
+                                            </Badge>
+                                          )}
                                         </div>
                                         <div className="text-[11.5px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52 tabular-nums">
                                           {entry.categoria} · Vence{' '}
                                           {formatShortDate(entry.vencimento)}
+                                          {entry.notaFiscal?.status === 'emitida' &&
+                                          entry.notaFiscal.numero
+                                            ? ` · ${entry.notaFiscal.numero}`
+                                            : ''}
                                         </div>
                                       </div>
 

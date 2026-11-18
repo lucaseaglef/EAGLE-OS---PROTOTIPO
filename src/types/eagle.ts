@@ -186,6 +186,25 @@ export interface Client {
 
 export type FinanceType = 'receber' | 'pagar';
 export type FinanceStatus = 'pendente' | 'liquidado';
+export type PaymentMethod = 'Pix' | 'TED' | 'Boleto' | 'Cartão' | 'Débito automático';
+export type NotaFiscalStatus = 'nao_aplicavel' | 'pendente' | 'emitida';
+export type AsaasBillingType = 'PIX' | 'BOLETO' | 'CREDIT_CARD';
+export type AsaasStatus = 'rascunho' | 'pronto' | 'enviado_manual' | 'pago';
+
+export interface NotaFiscalInfo {
+  status: NotaFiscalStatus;
+  numero?: string;
+  emitidaEm?: string; // YYYY-MM-DD
+  arquivoNome?: string;
+}
+
+export interface AsaasChargeFields {
+  billingType: AsaasBillingType;
+  status: AsaasStatus;
+  paymentId?: string;
+  externalReference?: string;
+  invoiceUrl?: string;
+}
 
 export interface FinanceEntry {
   id: string;
@@ -196,6 +215,37 @@ export interface FinanceEntry {
   vencimento: string; // YYYY-MM-DD
   clienteId: string;
   categoria: string;
+  projetoId?: string;
+  pagoEm?: string; // YYYY-MM-DD
+  formaPagamento?: PaymentMethod;
+  comprovanteNome?: string;
+  recorrente?: boolean;
+  periodicidade?: 'mensal' | 'anual' | 'avulso';
+  isCustoFixo?: boolean;
+  isImposto?: boolean;
+  origemImpostoDeId?: string;
+  origemContratoId?: string;
+  parcelaNumero?: number;
+  parcelaTotal?: number;
+  aliquotaImposto?: number; // Ex: 0.115 (11,5%)
+  observacoes?: string;
+  notaFiscal?: NotaFiscalInfo;
+  asaas?: AsaasChargeFields;
+}
+
+export interface Contract {
+  id: string;
+  titulo: string;
+  clienteId: string;
+  projetoId?: string;
+  valorTotalCentavos: number;
+  parcelas: number;
+  assinadoEm: string; // YYYY-MM-DD
+  primeiroVencimento: string; // YYYY-MM-DD
+  aliquotaImposto: number;
+  prazoNotaDias?: number;
+  status: 'assinado' | 'em_negociacao' | 'encerrado';
+  observacao?: string;
 }
 
 export interface Routine {
@@ -227,4 +277,6 @@ export interface Skill {
   passos: string[];
   agentesIds: string[];
   usosRecentes: number;
+  horasEstimadas?: number;
+  margemAlvo?: number; // Ex: 0.45 (45%)
 }

@@ -11,6 +11,7 @@ import {
 import { BentoCard, MicroRing } from '../components/VisualWidgets';
 import { useEagle } from '../context/EagleContext';
 import { AgentOperationalStatus, Goal, Member } from '../types/eagle';
+import { calculateFixedCostsMonthly, formatBRL } from '../utils/formatters';
 
 /* -------------------------------------------------------------------------- */
 /* AGENTES (Grade de cards operacionais de IA)                                */
@@ -20,6 +21,8 @@ export function AgentsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
     state,
     getTask,
     toggleAgentOperationalStatus,
+    toggleSubtask,
+    sendTaskMessage,
     setSelectedTaskId,
     setActiveSection,
   } = useEagle();
@@ -156,11 +159,17 @@ export function AgentsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
           {agents.length === 0 ? (
             <EmptyState title="Nenhum agente encontrado com esse filtro." />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 items-start">
               {agents.map((ag) => {
                 const currentTask = ag.tarefaAtualId
                   ? getTask(ag.tarefaAtualId)
                   : undefined;
+                const openTasksCount = state.tasks.filter(
+                  (t) =>
+                    t.responsavelId === ag.id &&
+                    t.estado !== 'concluida' &&
+                    t.estado !== 'cancelada'
+                ).length;
                 const skillsNames = state.skills
                   .filter((s) => ag.habilidadesIds?.includes(s.id))
                   .map((s) => s.nome);
@@ -170,6 +179,7 @@ export function AgentsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
                     key={ag.id}
                     agent={ag}
                     currentTask={currentTask}
+                    openTasksCount={openTasksCount}
                     skillsNames={skillsNames}
                     onOpenTask={() => {
                       if (currentTask) {
@@ -178,6 +188,10 @@ export function AgentsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
                       setActiveSection('tarefas');
                     }}
                     onToggleStatus={() => toggleAgentOperationalStatus(ag.id)}
+                    onToggleSubtask={(taskId, subId) => toggleSubtask(taskId, subId)}
+                    onSendQuickMessage={(taskId, msg) =>
+                      sendTaskMessage(taskId, msg, { forceImmediate: true })
+                    }
                   />
                 );
               })}
@@ -846,10 +860,15 @@ export function GoalsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }
 /* HABILIDADES (Receitas estruturadas em etapas modulares)                    */
 /* -------------------------------------------------------------------------- */
 export function SkillsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
-  const { state, getMember } = useEagle();
+  const { state, getMember, setActiveSection } = useEagle();
   const [search, setSearch] = useState('');
   const [selectedSkillId, setSelectedSkillId] = useState<string>(
     state.skills[0]?.id ?? ''
+  );
+
+  const fixedCosts = useMemo(
+    () => calculateFixedCostsMonthly(state.finances),
+    [state.finances]
   );
 
   const filtered = useMemo(() => {
@@ -946,6 +965,79 @@ export function SkillsView({ onOpenMobileMenu }: { onOpenMobileMenu: () => void 
                   </BentoCard>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-[12.5px] font-semibold text-[#0f1115]/60 dark:text-[#f2f4f7]/60">
+                Precificação do serviço (alimentada pelos custos fixos reais)
+              </h3>
+              {(() => {
+                const horas = activeSkill.horasEstimadas ?? 32;
+                const margem = activeSkill.margemAlvo ?? 0.45;
+                const aliquotaImposto = 0.115;
+                const custoAlocado = horas * fixedCosts.custoHoraEstudioCentavos;
+                const divisor = Math.max(0.15, 1 - margem - aliquotaImposto);
+                const precoSugerido = Math.round(custoAlocado / divisor);
+                const impostoEstimado = Math.round(precoSugerido * aliquotaImposto);
+                const lucroProjetado = precoSugerido - custoAlocado - impostoEstimado;
+
+                return (
+                  <BentoCard className="p-5 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="text-[11.5px] font-medium text-[#163744] dark:text-[#9fdce6]">
+                          Preço mínimo sugerido para este serviço ({horas}h estimadas)
+                        </div>
+                        <div className="mt-1 text-[26px] font-semibold tracking-[-0.025em] tabular-nums text-[#0f1115] dark:text-[#f2f4f7]">
+                          {formatBRL(precoSugerido)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection('financeiro')}
+                        className="eagle-btn-secondary h-8 px-3 text-[12px] font-medium inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <span>Ver custos fixos no Financeiro</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px] tabular-nums">
+                      <div className="rounded-[12px] bg-[#f2f4f7] dark:bg-[#10141b] p-3">
+                        <div className="text-[11px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                          Custos fixos/mês
+                        </div>
+                        <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                          {formatBRL(fixedCosts.totalMensalCentavos)}
+                        </div>
+                      </div>
+                      <div className="rounded-[12px] bg-[#f2f4f7] dark:bg-[#10141b] p-3">
+                        <div className="text-[11px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                          Base hora ({fixedCosts.horasProdutivasMes}h)
+                        </div>
+                        <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                          {formatBRL(fixedCosts.custoHoraEstudioCentavos)}/h
+                        </div>
+                      </div>
+                      <div className="rounded-[12px] bg-[#f2f4f7] dark:bg-[#10141b] p-3">
+                        <div className="text-[11px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                          Custo alocado ({horas}h)
+                        </div>
+                        <div className="mt-0.5 font-semibold text-[#0f1115] dark:text-[#f2f4f7]">
+                          {formatBRL(custoAlocado)}
+                        </div>
+                      </div>
+                      <div className="rounded-[12px] bg-[#f2f4f7] dark:bg-[#10141b] p-3">
+                        <div className="text-[11px] text-[#0f1115]/52 dark:text-[#f2f4f7]/52">
+                          Margem líquida ({Math.round(margem * 100)}%)
+                        </div>
+                        <div className="mt-0.5 font-semibold text-[#15803d] dark:text-[#4ade80]">
+                          +{formatBRL(lucroProjetado)}
+                        </div>
+                      </div>
+                    </div>
+                  </BentoCard>
+                );
+              })()}
             </div>
 
             <div className="space-y-3">

@@ -9,13 +9,18 @@ import React, {
 import { EagleState, INITIAL_EAGLE_STATE } from '../data/seedData';
 import {
   Artifact,
+  AsaasBillingType,
+  AsaasChargeFields,
   Client,
+  Contract,
   DecisionStatus,
   FinanceEntry,
   Goal,
   Member,
   MessageReaction,
   NavSection,
+  NotaFiscalStatus,
+  PaymentMethod,
   Project,
   ProjectStatus,
   QueuedMessage,
@@ -27,8 +32,9 @@ import {
   TaskStatus,
   ThemePreference,
 } from '../types/eagle';
+import { addMonthsISO, computeTaxDueDate, TODAY_ISO } from '../utils/formatters';
 
-const STORAGE_KEY = 'eagle-os-state-v3';
+const STORAGE_KEY = 'eagle-os-state-v4';
 const THEME_KEY = 'eagle-os-theme';
 
 export const AI_MODEL_OPTIONS = [
@@ -128,8 +134,40 @@ interface EagleContextValue {
   }) => Client;
 
   // Finance actions
-  createFinanceEntry: (input: Omit<FinanceEntry, 'id'>) => void;
+  createFinanceEntry: (input: Omit<FinanceEntry, 'id'>) => FinanceEntry;
   toggleFinanceStatus: (entryId: string) => void;
+  registerFinancePayment: (
+    entryId: string,
+    payload: {
+      pagoEm: string;
+      formaPagamento: PaymentMethod;
+      comprovanteNome?: string;
+    }
+  ) => void;
+  reopenFinanceEntry: (entryId: string) => void;
+  updateFinanceDocument: (
+    entryId: string,
+    payload: {
+      notaStatus?: NotaFiscalStatus;
+      numero?: string;
+      emitidaEm?: string;
+      arquivoNome?: string;
+      comprovanteNome?: string;
+    }
+  ) => void;
+  updateFinanceAsaas: (entryId: string, patch: Partial<AsaasChargeFields>) => void;
+  signContractAndGenerateInvoices: (input: {
+    titulo: string;
+    clienteId: string;
+    projetoId?: string;
+    valorTotalCentavos: number;
+    parcelas: number;
+    assinadoEm?: string;
+    primeiroVencimento: string;
+    aliquotaImposto?: number;
+    billingType?: AsaasBillingType;
+    observacao?: string;
+  }) => { contract: Contract; invoices: FinanceEntry[] };
 
   // Organization actions
   toggleAgentOperationalStatus: (agentId: string) => void;
@@ -226,6 +264,8 @@ export function EagleProvider({ children }: { children: React.ReactNode }) {
         if (
           parsed &&
           Array.isArray(parsed.tasks) &&
+          Array.isArray(parsed.contracts) &&
+          typeof parsed.saldoInicialCaixaCentavos === 'number' &&
           (parsed.tasks.length === 0 ||
             (Array.isArray(parsed.tasks[0].filaMensagens) &&
               Array.isArray(parsed.tasks[0].execucoes)))
@@ -1263,20 +1303,294 @@ export function EagleProvider({ children }: { children: React.ReactNode }) {
     const newEntry: FinanceEntry = {
       ...input,
       id: `fin-${Date.now()}`,
+      notaFiscal:
+        input.notaFiscal ??
+        (input.tipo === 'receber'
+          ? { status: 'pendente' }
+          : { status: 'nao_aplicavel' }),
+      asaas:
+        input.asaas ??
+        (input.tipo === 'receber'
+          ? {
+              billingType: 'PIX',
+              status: input.status === 'liquidado' ? 'pago' : 'rascunho',
+              externalReference: `EAG-${Date.now().toString().slice(-5)}`,
+            }
+          : undefined),
     };
-    setState((prev) => ({ ...prev, finances: [newEntry, ...prev.finances] }));
+    setState((prev) => {
+      const extraTax: FinanceEntry[] = [];
+      if (newEntry.tipo === 'receber' && newEntry.status === 'liquidado') {
+        const aliquota = newEntry.aliquotaImposto ?? 0.115;
+        const taxValue = Math.round(newEntry.valorCentavos * aliquota);
+        const taxRatePct = (aliquota * 100).toFixed(1).replace('.', ',');
+        extraTax.push({
+          id: `fin-tax-${newEntry.id}`,
+          descricao: `Imposto previsto (${taxRatePct}%) — ${newEntry.descricao}`,
+          tipo: 'pagar',
+          status: 'pendente',
+          valorCentavos: taxValue,
+          vencimento: computeTaxDueDate(newEntry.pagoEm || newEntry.vencimento),
+          clienteId: newEntry.clienteId,
+          projetoId: newEntry.projetoId,
+          categoria: 'Imposto previsto',
+          isImposto: true,
+          origemImpostoDeId: newEntry.id,
+          notaFiscal: { status: 'nao_aplicavel' },
+        });
+      }
+      return { ...prev, finances: [newEntry, ...extraTax, ...prev.finances] };
+    });
+    return newEntry;
   }, []);
 
-  const toggleFinanceStatus = useCallback((entryId: string) => {
+  const registerFinancePayment = useCallback(
+    (
+      entryId: string,
+      payload: {
+        pagoEm: string;
+        formaPagamento: PaymentMethod;
+        comprovanteNome?: string;
+      }
+    ) => {
+      setState((prev) => {
+        const target = prev.finances.find((f) => f.id === entryId);
+        if (!target) return prev;
+
+        const updatedFinances = prev.finances.map((f) => {
+          if (f.id !== entryId) return f;
+          return {
+            ...f,
+            status: 'liquidado' as const,
+            pagoEm: payload.pagoEm || TODAY_ISO,
+            formaPagamento: payload.formaPagamento,
+            comprovanteNome:
+              payload.comprovanteNome !== undefined
+                ? payload.comprovanteNome.trim() || f.comprovanteNome
+                : f.comprovanteNome,
+            asaas: f.asaas
+              ? {
+                  ...f.asaas,
+                  status: 'pago' as const,
+                }
+              : f.asaas,
+          };
+        });
+
+        const hasLinkedTax = updatedFinances.some(
+          (f) => f.origemImpostoDeId === entryId
+        );
+
+        if (target.tipo === 'receber' && !target.isImposto && !hasLinkedTax) {
+          const aliquota = target.aliquotaImposto ?? 0.115;
+          const taxCentavos = Math.round(target.valorCentavos * aliquota);
+          const taxRatePct = (aliquota * 100).toFixed(1).replace('.', ',');
+          const taxEntry: FinanceEntry = {
+            id: `fin-tax-${Date.now()}`,
+            descricao: `Imposto previsto (${taxRatePct}%) — ${target.descricao}`,
+            tipo: 'pagar',
+            status: 'pendente',
+            valorCentavos: taxCentavos,
+            vencimento: computeTaxDueDate(payload.pagoEm || TODAY_ISO),
+            clienteId: target.clienteId,
+            projetoId: target.projetoId,
+            categoria: 'Imposto previsto',
+            isImposto: true,
+            origemImpostoDeId: entryId,
+            notaFiscal: { status: 'nao_aplicavel' },
+          };
+          return { ...prev, finances: [...updatedFinances, taxEntry] };
+        }
+
+        return { ...prev, finances: updatedFinances };
+      });
+    },
+    []
+  );
+
+  const reopenFinanceEntry = useCallback((entryId: string) => {
     setState((prev) => ({
       ...prev,
-      finances: prev.finances.map((f) =>
-        f.id === entryId
-          ? { ...f, status: f.status === 'pendente' ? 'liquidado' : 'pendente' }
-          : f
-      ),
+      finances: prev.finances
+        .filter((f) => f.origemImpostoDeId !== entryId)
+        .map((f) => {
+          if (f.id !== entryId) return f;
+          return {
+            ...f,
+            status: 'pendente',
+            pagoEm: undefined,
+            asaas: f.asaas
+              ? {
+                  ...f.asaas,
+                  status: f.asaas.paymentId ? 'pronto' : 'rascunho',
+                }
+              : f.asaas,
+          };
+        }),
     }));
   }, []);
+
+  const toggleFinanceStatus = useCallback(
+    (entryId: string) => {
+      const current = state.finances.find((f) => f.id === entryId);
+      if (!current) return;
+      if (current.status === 'pendente') {
+        registerFinancePayment(entryId, {
+          pagoEm: TODAY_ISO,
+          formaPagamento: current.formaPagamento ?? 'Pix',
+          comprovanteNome: current.comprovanteNome,
+        });
+      } else {
+        reopenFinanceEntry(entryId);
+      }
+    },
+    [state.finances, registerFinancePayment, reopenFinanceEntry]
+  );
+
+  const updateFinanceDocument = useCallback(
+    (
+      entryId: string,
+      payload: {
+        notaStatus?: NotaFiscalStatus;
+        numero?: string;
+        emitidaEm?: string;
+        arquivoNome?: string;
+        comprovanteNome?: string;
+      }
+    ) => {
+      setState((prev) => ({
+        ...prev,
+        finances: prev.finances.map((f) => {
+          if (f.id !== entryId) return f;
+          const cleanNumero = payload.numero?.trim();
+          const cleanArquivo = payload.arquivoNome?.trim();
+          const derivedStatus: NotaFiscalStatus =
+            payload.notaStatus ??
+            (cleanNumero || cleanArquivo
+              ? 'emitida'
+              : f.notaFiscal?.status ?? 'pendente');
+
+          return {
+            ...f,
+            comprovanteNome:
+              payload.comprovanteNome !== undefined
+                ? payload.comprovanteNome.trim() || undefined
+                : f.comprovanteNome,
+            notaFiscal: {
+              status: derivedStatus,
+              numero: cleanNumero ?? f.notaFiscal?.numero,
+              emitidaEm:
+                payload.emitidaEm ??
+                (derivedStatus === 'emitida'
+                  ? f.notaFiscal?.emitidaEm ?? TODAY_ISO
+                  : undefined),
+              arquivoNome: cleanArquivo ?? f.notaFiscal?.arquivoNome,
+            },
+          };
+        }),
+      }));
+    },
+    []
+  );
+
+  const updateFinanceAsaas = useCallback(
+    (entryId: string, patch: Partial<AsaasChargeFields>) => {
+      setState((prev) => ({
+        ...prev,
+        finances: prev.finances.map((f) => {
+          if (f.id !== entryId) return f;
+          const current: AsaasChargeFields = f.asaas ?? {
+            billingType: 'PIX',
+            status: 'rascunho',
+          };
+          return {
+            ...f,
+            asaas: {
+              ...current,
+              ...patch,
+            },
+          };
+        }),
+      }));
+    },
+    []
+  );
+
+  const signContractAndGenerateInvoices = useCallback(
+    (input: {
+      titulo: string;
+      clienteId: string;
+      projetoId?: string;
+      valorTotalCentavos: number;
+      parcelas: number;
+      assinadoEm?: string;
+      primeiroVencimento: string;
+      aliquotaImposto?: number;
+      billingType?: AsaasBillingType;
+      observacao?: string;
+    }) => {
+      const nowStamp = Date.now();
+      const totalParcelas = Math.max(1, Math.min(24, Math.round(input.parcelas)));
+      const aliquota = input.aliquotaImposto ?? 0.115;
+      const contractId = `ctr-${nowStamp}`;
+      const contract: Contract = {
+        id: contractId,
+        titulo: input.titulo.trim(),
+        clienteId: input.clienteId,
+        projetoId: input.projetoId,
+        valorTotalCentavos: input.valorTotalCentavos,
+        parcelas: totalParcelas,
+        assinadoEm: input.assinadoEm || TODAY_ISO,
+        primeiroVencimento: input.primeiroVencimento,
+        aliquotaImposto: aliquota,
+        prazoNotaDias: 10,
+        status: 'assinado',
+        observacao: input.observacao?.trim(),
+      };
+
+      const baseParcela = Math.floor(input.valorTotalCentavos / totalParcelas);
+      const resto = input.valorTotalCentavos - baseParcela * totalParcelas;
+
+      const invoices: FinanceEntry[] = Array.from(
+        { length: totalParcelas },
+        (_, idx) => {
+          const parcelaNum = idx + 1;
+          const valorParcela = baseParcela + (idx === 0 ? resto : 0);
+          const vencimento = addMonthsISO(input.primeiroVencimento, idx);
+          return {
+            id: `fin-${nowStamp}-${parcelaNum}`,
+            descricao: `Parcela ${parcelaNum}/${totalParcelas} — ${contract.titulo}`,
+            tipo: 'receber',
+            status: 'pendente',
+            valorCentavos: valorParcela,
+            vencimento,
+            clienteId: input.clienteId,
+            projetoId: input.projetoId,
+            categoria: 'Contrato assinado',
+            origemContratoId: contractId,
+            parcelaNumero: parcelaNum,
+            parcelaTotal: totalParcelas,
+            aliquotaImposto: aliquota,
+            notaFiscal: { status: 'pendente' },
+            asaas: {
+              billingType: input.billingType ?? 'BOLETO',
+              status: 'pronto',
+              externalReference: `CTR-${nowStamp.toString().slice(-4)}-${parcelaNum}/${totalParcelas}`,
+            },
+          };
+        }
+      );
+
+      setState((prev) => ({
+        ...prev,
+        contracts: [contract, ...prev.contracts],
+        finances: [...invoices, ...prev.finances],
+      }));
+
+      return { contract, invoices };
+    },
+    []
+  );
 
   const toggleAgentOperationalStatus = useCallback((agentId: string) => {
     setState((prev) => ({
@@ -1419,6 +1733,11 @@ export function EagleProvider({ children }: { children: React.ReactNode }) {
       createClient,
       createFinanceEntry,
       toggleFinanceStatus,
+      registerFinancePayment,
+      reopenFinanceEntry,
+      updateFinanceDocument,
+      updateFinanceAsaas,
+      signContractAndGenerateInvoices,
       toggleAgentOperationalStatus,
       inviteTeamMember,
       toggleRoutineActive,
@@ -1469,6 +1788,11 @@ export function EagleProvider({ children }: { children: React.ReactNode }) {
       createClient,
       createFinanceEntry,
       toggleFinanceStatus,
+      registerFinancePayment,
+      reopenFinanceEntry,
+      updateFinanceDocument,
+      updateFinanceAsaas,
+      signContractAndGenerateInvoices,
       toggleAgentOperationalStatus,
       inviteTeamMember,
       toggleRoutineActive,

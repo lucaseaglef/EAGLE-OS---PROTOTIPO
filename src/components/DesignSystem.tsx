@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { Check, ChevronDown } from 'lucide-react';
 import { AgentOperationalStatus, Member } from '../types/eagle';
 import avatarLucasImg from '../assets/images/avatar_lucas_v3_1794636817675.jpg';
 import avatarMarianaImg from '../assets/images/avatar_mariana_v3_1794636818808.jpg';
@@ -524,6 +525,149 @@ export function GlobalMemberAvatar({
           )}
         </span>
       )}
+    </div>
+  );
+}
+
+/* ========================================================================== */
+/* SELETORES MODERNOS (CUSTOM DROPDOWN + SEGMENTED CHOICE)                    */
+/* ========================================================================== */
+
+export interface SelectOption<T extends string> {
+  value: T;
+  label: string;
+  hint?: string;
+}
+
+export function CustomSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder = 'Selecionar...',
+  className = '',
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: SelectOption<T>[];
+  placeholder?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const active = options.find((o) => o.value === value);
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="eagle-input w-full h-9.5 px-3 text-[13px] flex items-center justify-between gap-2 text-left cursor-pointer"
+      >
+        <span className="truncate font-medium text-[#0f1115] dark:text-[#f2f4f7]">
+          {active?.label ?? placeholder}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-[#0f1115]/48 dark:text-[#f2f4f7]/48 shrink-0 transition-transform duration-150 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 rounded-[12px] bg-[#ffffff]/96 dark:bg-[#191d26]/96 backdrop-blur-xl border border-[#0f1115]/10 dark:border-[#f2f4f7]/14 shadow-[0_14px_34px_rgba(15,17,21,0.14)] dark:shadow-[0_18px_40px_rgba(0,0,0,0.48)] p-1 max-h-56 overflow-y-auto"
+          >
+            {options.map((opt) => {
+              const selected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`w-full px-2.5 py-2 rounded-[9px] text-left text-[12.5px] flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                    selected
+                      ? 'bg-[#163744]/10 text-[#163744] dark:bg-[#9fdce6]/16 dark:text-[#9fdce6] font-semibold'
+                      : 'text-[#0f1115]/82 dark:text-[#f2f4f7]/82 hover:bg-[#0f1115]/5 dark:hover:bg-[#f2f4f7]/6'
+                  }`}
+                >
+                  <div className="min-w-0 truncate">
+                    <span>{opt.label}</span>
+                    {opt.hint && (
+                      <span className="ml-1.5 text-[11px] opacity-60">{opt.hint}</span>
+                    )}
+                  </div>
+                  {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export function SegmentedChoice<T extends string>({
+  value,
+  onChange,
+  options,
+  className = '',
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: SelectOption<T>[];
+  className?: string;
+}) {
+  return (
+    <div
+      className={`eagle-segmented grid gap-1 w-full ${className}`}
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      {options.map((opt) => {
+        const active = value === opt.value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`h-8 px-2 rounded-[8px] text-[12px] font-medium transition-all cursor-pointer truncate ${
+              active
+                ? 'bg-white dark:bg-[#252c38] text-[#0f1115] dark:text-[#f2f4f7] shadow-[0_1px_2px_rgba(15,17,21,0.08)] border border-[#0f1115]/8 dark:border-white/10'
+                : 'text-[#0f1115]/58 dark:text-[#f2f4f7]/58 hover:text-[#0f1115] dark:hover:text-[#f2f4f7]'
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
